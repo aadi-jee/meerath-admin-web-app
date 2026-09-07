@@ -2,7 +2,7 @@ import 'dart:typed_data';
 
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
-
+import '../data/menu_repository.dart';
 import '../data/mock_data.dart';
 import '../theme/app_colors.dart';
 import '../widgets/ui_bits.dart';
@@ -37,9 +37,21 @@ class _MenuItemFormScreenState
 Uint8List? _selectedImageBytes;
 String? _selectedImageName;
 bool _imageRemoved = false;
+bool _imageDirty = false;
+bool _scheduleChanged = false;
+List<Map<String,dynamic>> _originalSchedules = [];
+String? _imageUrl;
+late final String _itemId;
+bool _isLoading = true;
+String? _loadError;
+Map<String,dynamic> _attributes = {};
+List<CategoryData> _categories = [];
+List<SubcategoryData> _subcategories = [];
+List<Map<String,dynamic>> _branches = [];
   int _tabIndex = 0;
   int _spiceLevel = 2;
 
+bool _isSaving = false;
   bool _available = true;
   bool _showInCustomerApp = true;
   bool _featured = false;
@@ -51,8 +63,8 @@ bool _imageRemoved = false;
 TimeOfDay _startTime = const TimeOfDay(hour: 10, minute: 0);
 TimeOfDay _endTime = const TimeOfDay(hour: 23, minute: 0);
 final Set<int> _selectedDays = {1, 2, 3, 4, 5, 6, 7};
-  String _category = 'Rice';
-  String _subcategory = 'Biryani';
+  String _category = '';
+  String _subcategory = '';
 
   final Set<String> _selectedBranches = {
     'All Branches',
@@ -73,6 +85,8 @@ final Set<int> _selectedDays = {1, 2, 3, 4, 5, 6, 7};
     super.initState();
 
     final item = widget.item;
+    _itemId=item?.id??MenuRepository.newId();
+    _imageUrl=item?.imageUrl;
 _selectedImageBytes = item?.imageBytes;
 _selectedImageName = item?.imageName;
     _nameEn = TextEditingController(
@@ -87,7 +101,7 @@ _selectedImageName = item?.imageName;
       text: item?.description ?? '',
     );
 
-    _shortAr = TextEditingController();
+    _shortAr = TextEditingController(text:item?.descriptionAr??'');
 
     _price = TextEditingController(
       text: item?.price.toStringAsFixed(2) ?? '',
@@ -111,39 +125,93 @@ _selectedImageName = item?.imageName;
 
     _internalNotes = TextEditingController();
 
-    _category = item?.category ?? 'Rice';
-
-final initialSubcategories =
-    _subcategoriesFor(_category);
-
-final savedSubcategory =
-    item?.subcategory ?? '';
-
-_subcategory = savedSubcategory.isNotEmpty
-    ? savedSubcategory
-    : (initialSubcategories.isNotEmpty
-        ? initialSubcategories.first
-        : '');
-
-    _spiceLevel = item?.spiceLevel ?? 2;
-
-    _available = item?.available ?? true;
-    _featured = item?.featured ?? false;
-    _bestSeller = item?.bestSeller ?? false;
-    _newItem = item?.newItem ?? false;
-
-    _addons = MockData.addons
-        .map(
-          (addon) => _AddonOption(
-            name: addon.name,
-            type: addon.type,
-            price: addon.price,
-            enabled: true,
-            required: addon.required,
-          ),
-        )
-        .toList();
+    _category=item?.categoryId??'';
+    _subcategory=item?.subcategoryId??'';
+    _spiceLevel=item?.spiceLevel??2;
+    _available=item?.available??true;
+    _featured=item?.featured??false;
+    _bestSeller=item?.bestSeller??false;
+    _newItem=item?.newItem??false;
+    _addons=[];
+    _loadForm();
   }
+
+  Future<void> _loadForm() async {
+    setState((){_isLoading=true;_loadError=null;});
+    try {
+      final repo=MenuRepository();
+      final categoryRows=await repo.loadCategories();
+      final subRows=await repo.loadSubcategories(categoryRows.map((r)=>r['id'] as String).toList());
+      final branches=await repo.loadBranches();
+      Map<String,dynamic>? row;
+      List<Map<String,dynamic>> schedules=[];
+      List<String> assigned=[];
+      String notes='';
+      if(widget.item!=null) {
+        row=await repo.loadItem(_itemId);
+        schedules=await repo.loadSchedules(_itemId);
+        assigned=await repo.loadItemBranches(_itemId);
+        notes=await repo.loadNotes(_itemId);
+      }
+      if(!mounted)return;
+      final loadedRow=row;
+      setState((){
+        _categories=categoryRows.map((r)=>CategoryData(id:r['id'] as String,name:r['name_en'] as String,
+          nameAr:r['name_ar'] as String? ?? '',displayOrder:(r['sort_order'] as num).toInt(),active:r['is_active']==true)).toList();
+        _subcategories=subRows.map((r)=>SubcategoryData(id:r['id'] as String,categoryId:r['category_id'] as String,
+          name:r['name_en'] as String,nameAr:r['name_ar'] as String? ?? '',
+          displayOrder:(r['sort_order'] as num).toInt(),active:r['is_active']==true)).toList();
+        _branches=branches;
+        _originalSchedules=schedules;
+        if(loadedRow!=null){
+          final data=loadedRow;
+          _nameEn.text=data['name_en'] as String;
+          _nameAr.text=data['name_ar'] as String? ?? '';
+          _shortEn.text=data['description_en'] as String? ?? '';
+          _shortAr.text=data['description_ar'] as String? ?? '';
+          _price.text=(data['base_price'] as num).toString();
+          _category=data['category_id'] as String;
+          _subcategory=data['subcategory_id'] as String? ?? '';
+          _available=data['is_available']==true;
+          _featured=data['is_featured']==true;
+          _bestSeller=data['is_best_seller']==true;
+          _newItem=data['is_new']==true;
+          _showInCustomerApp=data['show_in_customer_app']!=false;
+          _imageUrl=data['image_url'] as String?;
+          _attributes=Map<String,dynamic>.from(data['attributes'] as Map? ?? {});
+          _comparePrice.text=_attributes['compare_at_price']?.toString()??'';
+          _prepTime.text=(_attributes['prep_time']??25).toString();
+          _calories.text=(_attributes['calories']??0).toString();
+          _servingSize.text=_attributes['serving_size'] as String? ?? '';
+          _spiceLevel=(_attributes['spice_level'] as num?)?.toInt()??0;
+          _vatIncluded=_attributes['vat_included']!=false;
+          _selectedImageName=_attributes['image_name'] as String?;
+          _internalNotes.text=notes;
+          _addons=(_attributes['options'] as List? ?? []).map((o)=>_AddonOption(
+            name:o['name'] as String,type:o['type'] as String,
+            price:'SAR ${(o['price'] as num).toStringAsFixed(2)}',
+            enabled:o['enabled']==true,required:o['required']==true)).toList();
+          _selectedBranches..clear()..addAll(assigned);
+          if(_attributes['all_branches']==true || (assigned.isEmpty&&!_attributes.containsKey('all_branches'))) _selectedBranches..clear()..add('All Branches');
+          if(schedules.isNotEmpty){
+            _selectedDays..clear()..addAll(schedules.where((d)=>d['is_available']==true).map((d)=>(d['day_of_week'] as num).toInt()));
+            final first=schedules.firstWhere((d)=>d['is_available']==true,orElse:()=>schedules.first);
+            _scheduleAllDay=first['start_time']==null;
+            if(!_scheduleAllDay){_startTime=_parseTime(first['start_time'] as String);_endTime=_parseTime(first['end_time'] as String);}
+          }
+        } else {
+          final active=_categories.where((c)=>c.active).toList();
+          _category=active.isEmpty?'':active.first.id;
+          _subcategory='';
+        }
+        _isLoading=false;
+      });
+    }catch(e){if(mounted)setState((){_isLoading=false;_loadError=MenuRepository.errorMessage(e);});}
+  }
+
+  TimeOfDay _parseTime(String text){final p=text.split(':');return TimeOfDay(hour:int.parse(p[0]),minute:int.parse(p[1]));}
+  String _timeText(TimeOfDay t)=>'${t.hour.toString().padLeft(2,'0')}:${t.minute.toString().padLeft(2,'0')}:00';
+  String get _categoryName=>_categories.where((c)=>c.id==_category).map((c)=>c.name).firstOrNull??'';
 
   @override
   void dispose() {
@@ -161,43 +229,10 @@ _subcategory = savedSubcategory.isNotEmpty
     super.dispose();
   }
 
-  List<String> _subcategoriesFor(String category) {
-  var categoryName = category;
-
-  // Temporary compatibility for old mock items.
-  if (category == 'Rice') {
-    categoryName = 'Biryani & Rice';
-  } else if (category == 'BBQ') {
-    categoryName = 'BBQ & Grill';
-  } else if (category == 'Drinks') {
-    categoryName = 'Cold Drinks';
+  List<SubcategoryData> _subcategoriesFor(String categoryId) {
+    return _subcategories.where((s)=>s.categoryId==categoryId&&(s.active||s.id==_subcategory)).toList()
+      ..sort((a,b)=>a.displayOrder.compareTo(b.displayOrder));
   }
-
-  final categoryIndex = MockData.menuCategories.indexWhere(
-    (item) => item.name == categoryName,
-  );
-
-  if (categoryIndex == -1) {
-    return [];
-  }
-
-  final categoryId = MockData.menuCategories[categoryIndex].id;
-
-  final subcategories = MockData.menuSubcategories
-    .where(
-      (item) =>
-          item.categoryId == categoryId &&
-          item.active,
-    )
-    .toList()
-    ..sort(
-      (a, b) => a.displayOrder.compareTo(b.displayOrder),
-    );
-
-  return subcategories
-      .map((item) => item.name)
-      .toList();
-}
 Future<void> _showAddOptionDialog() async {
   final nameController = TextEditingController();
   final priceController = TextEditingController(text: '0.00');
@@ -358,7 +393,10 @@ Future<void> _showAddOptionDialog() async {
                     ? null
                     : () {
                         final parsedPrice =
-                            double.tryParse(priceController.text) ?? 0;
+                            double.tryParse(priceController.text);
+                        if(parsedPrice==null||!parsedPrice.isFinite||parsedPrice<0){
+                          ScaffoldMessenger.of(this.context).showSnackBar(const SnackBar(content:Text('Enter a valid option price.')));return;
+                        }
 
                         setState(() {
                           _addons.add(
@@ -402,13 +440,15 @@ Future<void> _pickAvailabilityTime({required bool start}) async {
     initialTime: start ? _startTime : _endTime,
   );
 
-  if (picked == null) return;
+  if (picked == null || !mounted) return;
 
   setState(() {
     if (start) {
-      _startTime = picked;
+      _scheduleChanged=true;
+    _startTime = picked;
     } else {
-      _endTime = picked;
+      _scheduleChanged=true;
+    _endTime = picked;
     }
   });
 }
@@ -442,6 +482,7 @@ Future<void> _pickItemImage() async {
   _selectedImageBytes = bytes;
   _selectedImageName = file.name;
   _imageRemoved = false;
+  _imageDirty = true;
 });
 }
 void _removeItemImage() {
@@ -449,107 +490,61 @@ void _removeItemImage() {
     _selectedImageBytes = null;
     _selectedImageName = null;
     _imageRemoved = true;
+    _imageDirty = false;
+    _imageUrl = null;
   });
 }
-  void _saveItem({required bool draft}) {
-  final name = _nameEn.text.trim();
-  final price = double.tryParse(_price.text.trim());
-
-  if (name.isEmpty) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text('Please enter the item name.'),
-      ),
-    );
-    return;
+  Future<void> _saveItem({required bool draft}) async {
+    if(_isSaving||_isLoading||_loadError!=null)return;
+    final price=double.tryParse(_price.text.trim());
+    final compare=_comparePrice.text.trim().isEmpty?null:double.tryParse(_comparePrice.text.trim());
+    final prep=int.tryParse(_prepTime.text.trim());
+    final calories=int.tryParse(_calories.text.trim());
+    String? invalid;
+    if(_nameEn.text.trim().isEmpty||price==null||!price.isFinite||price<0) invalid='Enter a name and valid price.';
+    if(_comparePrice.text.trim().isNotEmpty&&(compare==null||!compare.isFinite||compare<0)) invalid='Enter a valid compare-at price.';
+    if(prep==null||prep<0||calories==null||calories<0) invalid='Prep time and calories must be whole numbers, zero or higher.';
+    if(!_categories.any((c)=>c.id==_category))invalid='Choose a category.';
+    if(_subcategory.isNotEmpty&&!_subcategories.any((c)=>c.id==_subcategory&&c.categoryId==_category))invalid='Choose a valid subcategory.';
+    if(!_scheduleAllDay&&_startTime.hour*60+_startTime.minute>=_endTime.hour*60+_endTime.minute)invalid='End time must be after start time.';
+    final branchIds=_selectedBranches.contains('All Branches')
+      ?_branches.where((b)=>b['is_active']==true).map((b)=>b['id'] as String).toList()
+      :_selectedBranches.toList();
+    if(branchIds.isEmpty)invalid='Select at least one branch.';
+    final options=<Map<String,dynamic>>[];
+    for(final o in _addons){
+      final amount=double.tryParse(o.price.replaceAll('SAR','').trim());
+      if(amount==null||!amount.isFinite||amount<0){invalid='An option has an invalid price.';break;}
+      options.add({'name':o.name,'type':o.type,'price':amount,'enabled':o.enabled,'required':o.required});
+    }
+    if(invalid!=null){ScaffoldMessenger.of(context).showSnackBar(SnackBar(content:Text(invalid)));return;}
+    setState(()=>_isSaving=true);
+    try {
+      final repo=MenuRepository();
+      if(_imageDirty&&_selectedImageBytes!=null){
+        _imageUrl=await repo.uploadImage(_selectedImageBytes!,_selectedImageName??'image.jpg');
+        _imageDirty=false; // Reuse the same upload if the database request needs retrying.
+      }
+      await repo.saveMenuItem({
+        'id':_itemId,'category_id':_category,'subcategory_id':_subcategory.isEmpty?null:_subcategory,
+        'name_en':_nameEn.text.trim(),'name_ar':_nameAr.text.trim(),
+        'description_en':_shortEn.text.trim(),'description_ar':_shortAr.text.trim(),
+        'base_price':price,'status':draft?'draft':'published',
+        'is_available':_available,'is_featured':_featured,'is_best_seller':_bestSeller,'is_new':_newItem,
+        'show_in_customer_app':_showInCustomerApp,'image_url':_imageRemoved?null:_imageUrl,
+        'attributes':{..._attributes,'compare_at_price':compare,'prep_time':prep,'calories':calories,
+          'serving_size':_servingSize.text.trim(),'spice_level':_spiceLevel,'vat_included':_vatIncluded,
+          'options':options,'all_branches':_selectedBranches.contains('All Branches'),
+          'image_name':_imageRemoved?null:_selectedImageName},
+      }, schedules:!_scheduleChanged&&_originalSchedules.length==7?_originalSchedules:List.generate(7,(i)=>{'day_of_week':i+1,'is_available':_selectedDays.contains(i+1),
+        'start_time':_scheduleAllDay?null:_timeText(_startTime),'end_time':_scheduleAllDay?null:_timeText(_endTime)}),
+        branchIds:branchIds,notes:_internalNotes.text.trim());
+      if(!mounted)return;
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content:Text(draft?'Draft saved.':'Menu item saved.')));
+      widget.onBack();
+    }catch(e){if(mounted)ScaffoldMessenger.of(context).showSnackBar(SnackBar(content:Text(MenuRepository.errorMessage(e))));}
+    finally{if(mounted)setState(()=>_isSaving=false);}
   }
-
-  if (price == null || price < 0) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text('Please enter a valid price.'),
-      ),
-    );
-    return;
-  }
-
-  final comparePriceText = _comparePrice.text.trim();
-  final comparePrice = comparePriceText.isEmpty
-      ? null
-      : double.tryParse(comparePriceText);
-
-  final availableAt = _selectedBranches.contains('All Branches')
-      ? 'All Branches'
-      : _selectedBranches
-          .map((branch) => branch.replaceFirst('Meerath ', ''))
-          .join(', ');
-
-  final newItem = MenuItemData(
-    id: widget.item?.id ??
-        DateTime.now().millisecondsSinceEpoch.toString(),
-    name: name,
-    nameAr: _nameAr.text.trim(),
-    description: _shortEn.text.trim(),
-    longDescription:
-        widget.item?.longDescription ?? _shortEn.text.trim(),
-    category: _category,
-    subcategory: _subcategory,
-    price: price,
-    compareAtPrice: comparePrice,
-    availableAt: availableAt,
-    portions: widget.item?.portions ?? 0,
-    available: draft
-    ? false
-    : (widget.item?.status == 'Draft' ? true : _available),
-    featured: _featured,
-    imageBytes: _imageRemoved
-    ? null
-    : (_selectedImageBytes ?? widget.item?.imageBytes),
-
-imageName: _imageRemoved
-    ? null
-    : (_selectedImageName ?? widget.item?.imageName),
-    status: draft
-    ? 'Draft'
-    : (widget.item?.status == 'Draft'
-        ? 'Live'
-        : (_available ? 'Live' : 'Unavailable')),
-    prepTime: int.tryParse(_prepTime.text.trim()) ?? 25,
-    calories: int.tryParse(_calories.text.trim()) ?? 0,
-    servingSize: _servingSize.text.trim().isEmpty
-        ? '1 plate'
-        : _servingSize.text.trim(),
-    spiceLevel: _spiceLevel,
-    bestSeller: _bestSeller,
-    newItem: _newItem,
-    color: widget.item?.color ?? AppColors.accent,
-  );
-
-  final existingIndex = MockData.menuItems.indexWhere(
-    (item) => item.id == newItem.id,
-  );
-
-  if (existingIndex >= 0) {
-    MockData.menuItems[existingIndex] = newItem;
-  } else {
-    MockData.menuItems.insert(0, newItem);
-  }
-
-  ScaffoldMessenger.of(context).showSnackBar(
-    SnackBar(
-      content: Text(
-        draft
-            ? 'Item saved as draft'
-            : widget.item == null
-                ? 'Menu item published'
-                : 'Menu item updated',
-      ),
-      backgroundColor: AppColors.surfaceAlt,
-    ),
-  );
-
-  widget.onBack();
-}
 
 void _saveDraft() {
   _saveItem(draft: true);
@@ -563,7 +558,29 @@ void _publish() {
   Widget build(BuildContext context) {
     final editing = widget.item != null;
 
-    return Column(
+    if (_isLoading) {
+  return const Center(child: CircularProgressIndicator());
+}
+
+if (_loadError != null) {
+  return Center(
+    child: Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Text(_loadError!),
+        TextButton(
+          onPressed: _loadForm,
+          child: const Text('Retry'),
+        ),
+        TextButton(
+          onPressed: widget.onBack,
+          child: const Text('Back'),
+        ),
+      ],
+    ),
+  );
+}
+    return Stack(children:[AbsorbPointer(absorbing:_isSaving,child:Column(
       children: [
         Expanded(
           child: LayoutBuilder(
@@ -617,7 +634,7 @@ void _publish() {
                             price: _price.text,
                             comparePrice:
                                 _comparePrice.text,
-                            category: _category,
+                            category: _categoryName,
                             available: _available,
                             featured: _featured,
                             bestSeller: _bestSeller,
@@ -625,6 +642,7 @@ void _publish() {
                             prepTime: _prepTime.text,
                             spiceLevel: _spiceLevel,
                             imageBytes: _selectedImageBytes,
+                            imageUrl: _imageUrl,
                           ),
                         ),
                       ],
@@ -640,7 +658,7 @@ void _publish() {
                       price: _price.text,
                       comparePrice:
                           _comparePrice.text,
-                      category: _category,
+                      category: _categoryName,
                       available: _available,
                       featured: _featured,
                       bestSeller: _bestSeller,
@@ -648,6 +666,7 @@ void _publish() {
                       prepTime: _prepTime.text,
                       spiceLevel: _spiceLevel,
                       imageBytes: _selectedImageBytes,
+                            imageUrl: _imageUrl,
                     ),
                   ],
                 ],
@@ -663,7 +682,9 @@ void _publish() {
           onPublish: _publish,
         ),
       ],
-    );
+    )),
+    if(_isSaving)const Positioned(top:0,left:0,right:0,child:LinearProgressIndicator()),
+    ]);
   }
 
   Widget _buildTabContent() {
@@ -686,26 +707,8 @@ void _publish() {
   }
 
   Widget _buildBasicInfo() {
-    final categoryData = [...MockData.menuCategories]
-  ..sort(
-    (a, b) => a.displayOrder.compareTo(b.displayOrder),
-  );
-
-final categories = categoryData
-    .map((category) => category.name)
-    .toList();
-    final subcategories =
-    _subcategoriesFor(_category);
-
-if (_subcategory.isNotEmpty &&
-    !subcategories.contains(_subcategory)) {
-  subcategories.insert(0, _subcategory);
-}
-
-if (_category.isNotEmpty && !categories.contains(_category)) {
-  categories.insert(0, _category);
-}
-
+    final categories=_categories.where((c)=>c.active||c.id==_category).toList();
+    final subcategories=_subcategoriesFor(_category);
     return Column(
       children: [
         SectionCard(
@@ -826,7 +829,7 @@ if (_category.isNotEmpty && !categories.contains(_category)) {
                     child:
                         DropdownButtonFormField<
                             String>(
-                      initialValue: _category,
+                      initialValue: _category.isEmpty?null:_category,
                       dropdownColor:
                           AppColors.surfaceAlt,
                       decoration:
@@ -835,8 +838,8 @@ if (_category.isNotEmpty && !categories.contains(_category)) {
                         for (final category
                             in categories)
                           DropdownMenuItem(
-                            value: category,
-                            child: Text(category),
+                            value: category.id,
+                            child: Text(category.name),
                           ),
                       ],
                       onChanged: (value) {
@@ -849,7 +852,7 @@ if (_category.isNotEmpty && !categories.contains(_category)) {
       _subcategoriesFor(value);
 
   _subcategory = availableSubcategories.isNotEmpty
-      ? availableSubcategories.first
+      ? availableSubcategories.first.id
       : '';
 });
                       },
@@ -862,17 +865,18 @@ if (_category.isNotEmpty && !categories.contains(_category)) {
                     child:
                         DropdownButtonFormField<
                             String>(
-                      key: ValueKey(_category),
-initialValue: _subcategory.isEmpty ? null : _subcategory,
+                      key: ValueKey('$_category/$_subcategory'),
+initialValue: _subcategory,
                       dropdownColor:
                           AppColors.surfaceAlt,
                       decoration:
                           const InputDecoration(),
                       items: [
+  const DropdownMenuItem(value:'',child:Text('None')),
   for (final subcategory in subcategories)
     DropdownMenuItem(
-      value: subcategory,
-      child: Text(subcategory),
+      value: subcategory.id,
+      child: Text(subcategory.name),
     ),
 ],
                       onChanged: (value) {
@@ -958,6 +962,7 @@ initialValue: _subcategory.isEmpty ? null : _subcategory,
         _ImageUploadCard(
   imageBytes: _selectedImageBytes,
   imageName: _selectedImageName,
+  imageUrl: _imageUrl,
   onTap: _pickItemImage,
   onRemove: _removeItemImage,
 ),
@@ -1297,12 +1302,7 @@ initialValue: _subcategory.isEmpty ? null : _subcategory,
   }
 
   Widget _buildAvailability() {
-    const branches = [
-      'All Branches',
-      'Meerath Riyadh',
-      'Meerath Jeddah',
-      'Meerath Dammam',
-    ];
+    final branches = ['All Branches',..._branches.map((b)=>b['id'] as String)];
 
     return Column(
       children: [
@@ -1357,7 +1357,7 @@ initialValue: _subcategory.isEmpty ? null : _subcategory,
                   for (final branch
                       in branches)
                     FilterChip(
-                      label: Text(branch),
+                      label: Text(branch=='All Branches'?branch:_branches.firstWhere((b)=>b['id']==branch)['name'] as String),
                       selected:
                           _selectedBranches
                               .contains(branch),
@@ -1443,6 +1443,7 @@ initialValue: _subcategory.isEmpty ? null : _subcategory,
                           _scheduleAllDay,
                       onTap: () {
                         setState(() {
+                          _scheduleChanged=true;
                           _scheduleAllDay = true;
                         });
                       },
@@ -1458,6 +1459,7 @@ initialValue: _subcategory.isEmpty ? null : _subcategory,
                           !_scheduleAllDay,
                       onTap: () {
                         setState(() {
+                          _scheduleChanged=true;
                           _scheduleAllDay = false;
                         });
                       },
@@ -1516,7 +1518,7 @@ initialValue: _subcategory.isEmpty ? null : _subcategory,
       children: [
         const _SectionTitle(
           title: 'Available Days',
-          subtitle: 'Choose the days when customers can order this item.',
+          subtitle: 'Save available days. Custom times use the branch local time.',
         ),
 
         const SizedBox(height: 16),
@@ -1539,9 +1541,10 @@ initialValue: _subcategory.isEmpty ? null : _subcategory,
                 ),
                 onSelected: (selected) {
                   setState(() {
+                    _scheduleChanged=true;
                     if (selected) {
                       _selectedDays.add(day.$1);
-                    } else if (_selectedDays.length > 1) {
+                    } else {
                       _selectedDays.remove(day.$1);
                     }
                   });
@@ -1571,7 +1574,7 @@ initialValue: _subcategory.isEmpty ? null : _subcategory,
 _ToggleRow(
   title: 'Show in Customer App',
   subtitle: _showInCustomerApp
-      ? 'This item is visible to customers.'
+      ? 'Allow this item in the customer menu when published and available.'
       : 'This item is hidden from the customer app.',
   value: _showInCustomerApp,
   onChanged: (value) {
@@ -1813,6 +1816,7 @@ class _PreviewColumn extends StatelessWidget {
     required this.prepTime,
     required this.spiceLevel,
     required this.imageBytes,
+    this.imageUrl,
 });
 
   final MenuItemData? item;
@@ -1832,6 +1836,7 @@ class _PreviewColumn extends StatelessWidget {
   final String prepTime;
   final int spiceLevel;
   final Uint8List? imageBytes;
+  final String? imageUrl;
   
 
   @override
@@ -1891,6 +1896,9 @@ width: 330,
       fit: BoxFit.cover,
     ),
   )
+else if(imageUrl?.isNotEmpty==true)
+  Positioned.fill(child:Image.network(imageUrl!,fit:BoxFit.cover,
+    errorBuilder:(_,e,s)=>const Center(child:Icon(Icons.broken_image_outlined))))
 else
   const Center(
     child: Icon(
@@ -2213,12 +2221,14 @@ class _PreviewStatusRow extends StatelessWidget {
 class _ImageUploadCard extends StatelessWidget {
   const _ImageUploadCard({
   required this.imageBytes,
+    this.imageUrl,
   required this.imageName,
   required this.onTap,
   required this.onRemove,
 });
 
   final Uint8List? imageBytes;
+  final String? imageUrl;
   final String? imageName;
   final VoidCallback onTap;
   final VoidCallback onRemove;
@@ -2251,14 +2261,13 @@ class _ImageUploadCard extends StatelessWidget {
                   color: AppColors.borderStrong,
                 ),
               ),
-              child: imageBytes != null
+              child: (imageBytes != null || imageUrl?.isNotEmpty==true)
                   ? Stack(
                       fit: StackFit.expand,
                       children: [
-                        Image.memory(
-                          imageBytes!,
-                          fit: BoxFit.cover,
-                        ),
+                        if(imageBytes!=null)Image.memory(imageBytes!,fit:BoxFit.cover)
+                        else Image.network(imageUrl!,fit:BoxFit.cover,
+                          errorBuilder:(_,e,s)=>const Center(child:Icon(Icons.broken_image_outlined))),
 
                         Positioned(
                           left: 0,

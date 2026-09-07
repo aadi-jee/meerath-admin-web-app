@@ -1,12 +1,19 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 
 import 'screens/login_screen.dart';
 import 'theme/app_theme.dart';
 
-void main() {
+Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
   SemanticsBinding.instance.ensureSemantics();
+
+  await Supabase.initialize(
+    url: 'https://skwburtcthxihpgqagmm.supabase.co',
+    publishableKey: 'sb_publishable_6f7rQ5e2pJ_rdUoBxaInoA_wJW5KtHW',
+  );
+
   runApp(const MeerathAdminApp());
 }
 

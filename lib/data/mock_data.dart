@@ -11,6 +11,11 @@ class MenuItemData {
     required this.longDescription,
     required this.category,
     this.subcategory = '',
+    this.categoryId = '',
+    this.subcategoryId,
+    this.descriptionAr = '',
+    this.imageUrl,
+    this.attributes = const {},
     required this.price,
     this.compareAtPrice,
     required this.availableAt,
@@ -36,6 +41,11 @@ class MenuItemData {
   final String longDescription;
   final String category;
   final String subcategory;
+  final String categoryId;
+  final String? subcategoryId;
+  final String descriptionAr;
+  final String? imageUrl;
+  final Map<String, dynamic> attributes;
   final double price;
   final double? compareAtPrice;
   final String availableAt;
@@ -62,6 +72,11 @@ final String? imageName;
       longDescription: longDescription,
       category: category,
       subcategory: subcategory,
+      categoryId: categoryId,
+      subcategoryId: subcategoryId,
+      descriptionAr: descriptionAr,
+      imageUrl: imageUrl,
+      attributes: attributes,
       price: price,
       compareAtPrice: compareAtPrice,
       availableAt: availableAt,

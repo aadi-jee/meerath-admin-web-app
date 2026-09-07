@@ -1,5 +1,8 @@
+import 'dart:async';
+import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:flutter/material.dart';
 
+import '../data/menu_repository.dart';
 import '../data/mock_data.dart';
 import '../theme/app_colors.dart';
 import '../widgets/ui_bits.dart';
@@ -26,12 +29,87 @@ class _MenuScreenState extends State<MenuScreen> {
 bool _showCategories = false;
 final Set<String> _expandedCategoryIds = {};
 
-  late List<MenuItemData> _items;
+  List<MenuItemData> _items = [];
+  bool _loading = true;
+  bool _busy = false;
+  bool _refreshing = false;
+  bool _refreshAgain = false;
+  String? _loadError;
+  Timer? _debounce;
+  Timer? _poll;
+  RealtimeChannel? _channel;
 
   @override
   void initState() {
     super.initState();
-    _items = MockData.menuItems;
+    _checkSupabaseMenu();
+    final channel=Supabase.instance.client.channel('admin-menu-${identityHashCode(this)}');
+    for(final table in ['menu_items','categories','subcategories','menu_item_schedules','branch_menu_items']) {
+      channel.onPostgresChanges(event:PostgresChangeEvent.all,schema:'public',table:table,
+        callback:(_)=>_scheduleRefresh());
+    }
+    _channel=channel.subscribe();
+    // Reconcile after a missed realtime event or temporary disconnect.
+    _poll=Timer.periodic(const Duration(seconds:30),(_)=>_scheduleRefresh());
+  }
+
+  void _scheduleRefresh() {
+    _debounce?.cancel();
+    _debounce=Timer(const Duration(milliseconds:500),(){
+      if(mounted && !_busy) _checkSupabaseMenu();
+    });
+  }
+
+  @override
+  void dispose() {
+    _debounce?.cancel();
+    _poll?.cancel();
+    if(_channel!=null) unawaited(Supabase.instance.client.removeChannel(_channel!));
+    super.dispose();
+  }
+
+  Future<void> _checkSupabaseMenu() async {
+    if(_refreshing){_refreshAgain=true;return;}
+    _refreshing=true;
+    try {
+      final repository=MenuRepository();
+      final categoryRows=await repository.loadCategories();
+      final subcategoryRows=await repository.loadSubcategories(categoryRows.map((r)=>r['id'] as String).toList());
+      final items=await repository.loadDisplayItems();
+      if(!mounted)return;
+      setState((){
+        MockData.menuCategories..clear()..addAll(categoryRows.map((r)=>CategoryData(
+          id:r['id'] as String,name:r['name_en'] as String,nameAr:r['name_ar'] as String? ?? '',
+          displayOrder:(r['sort_order'] as num).toInt(),active:r['is_active']==true)));
+        MockData.menuSubcategories..clear()..addAll(subcategoryRows.map((r)=>SubcategoryData(
+          id:r['id'] as String,categoryId:r['category_id'] as String,name:r['name_en'] as String,
+          nameAr:r['name_ar'] as String? ?? '',displayOrder:(r['sort_order'] as num).toInt(),active:r['is_active']==true)));
+        _items=items;
+        if(!MockData.menuCategories.any((c)=>c.name==_category)) _category='All';
+        _loading=false;
+        _loadError=null;
+      });
+    } catch(e) {
+      if(mounted)setState((){_loading=false;_loadError=MenuRepository.errorMessage(e);});
+    } finally {
+      _refreshing=false;
+      if(_refreshAgain && mounted){_refreshAgain=false;_scheduleRefresh();}
+    }
+  }
+
+  Future<void> _mutate(Future<void> Function() action) async {
+    if(_busy)return;
+    setState(()=>_busy=true);
+    try {
+      await action();
+      // Finish any read that started before the write, then fetch its result.
+      while(_refreshing && mounted){await Future<void>.delayed(const Duration(milliseconds:50));}
+      if(mounted)await _checkSupabaseMenu();
+    } catch(e) {
+      if(mounted)ScaffoldMessenger.of(context).showSnackBar(SnackBar(content:Text(MenuRepository.errorMessage(e))));
+    } finally {
+      if(mounted)setState(()=>_busy=false);
+    }
   }
 
   List<MenuItemData> get _filteredItems {
@@ -59,79 +137,14 @@ final Set<String> _expandedCategoryIds = {};
     }).toList();
   }
 
-  void _toggleAvailable(MenuItemData item, bool value) {
-    setState(() {
-      final index = _items.indexWhere((e) => e.id == item.id);
-
-      if (index == -1) return;
-
-      _items[index] = _items[index].copyWith(
-        available: value,
-        status: value ? 'Live' : 'Unavailable',
-      );
-    });
-  }
-
-  void _toggleFeatured(MenuItemData item) {
-    setState(() {
-      final index = _items.indexWhere((e) => e.id == item.id);
-
-      if (index == -1) return;
-
-      _items[index] = _items[index].copyWith(
-        featured: !item.featured,
-      );
-    });
-  }
-
-  void _deleteItem(MenuItemData item) {
-    setState(() {
-      _items.removeWhere((e) => e.id == item.id);
-    });
-
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text('${item.name} deleted'),
-        backgroundColor: AppColors.surfaceAlt,
-      ),
-    );
-  }
-
-  void _duplicateItem(MenuItemData item) {
-    final duplicated = MenuItemData(
-      id: DateTime.now().millisecondsSinceEpoch.toString(),
-      name: '${item.name} Copy',
-      nameAr: item.nameAr,
-      description: item.description,
-      longDescription: item.longDescription,
-      category: item.category,
-      price: item.price,
-      compareAtPrice: item.compareAtPrice,
-      availableAt: item.availableAt,
-      portions: item.portions,
-      available: false,
-      featured: false,
-      status: 'Unavailable',
-      prepTime: item.prepTime,
-      calories: item.calories,
-      servingSize: item.servingSize,
-      spiceLevel: item.spiceLevel,
-      bestSeller: false,
-      newItem: false,
-      color: item.color,
-    );
-
-    setState(() {
-      _items.insert(0, duplicated);
-    });
-
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text('${item.name} duplicated'),
-        backgroundColor: AppColors.surfaceAlt,
-      ),
-    );
-  }
+  Future<void> _toggleAvailable(MenuItemData item,bool value) =>
+    _mutate(()=>MenuRepository().updateAvailability(item.id,value));
+  Future<void> _toggleFeatured(MenuItemData item) =>
+    _mutate(()=>MenuRepository().updateFeatured(item.id,!item.featured));
+  Future<void> _deleteItem(MenuItemData item) =>
+    _mutate(()=>MenuRepository().archiveMenuItem(item.id));
+  Future<void> _duplicateItem(MenuItemData item) =>
+    _mutate(()=>MenuRepository().duplicateMenuItem(item.id));
 
   void _previewItem(MenuItemData item) {
     showDialog(
@@ -146,21 +159,7 @@ final Set<String> _expandedCategoryIds = {};
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                item.imageBytes != null
-    ? ClipRRect(
-        borderRadius: BorderRadius.circular(16),
-        child: Image.memory(
-          item.imageBytes!,
-          width: 90,
-          height: 90,
-          fit: BoxFit.cover,
-        ),
-      )
-    : FoodThumb(
-        color: item.color,
-        size: 90,
-        radius: 16,
-      ),
+                _MenuImage(item:item,size:90,radius:16),
                 const SizedBox(height: 16),
                 Text(
                   item.nameAr,
@@ -244,517 +243,83 @@ final Set<String> _expandedCategoryIds = {};
     );
   }
 
-  Future<void> _showAddCategoryDialog() async {
-  final nameController = TextEditingController();
-  final nameArController = TextEditingController();
+  Future<void> _showAddCategoryDialog() => _editGroup();
+  Future<void> _showEditCategoryDialog(CategoryData c) => _editGroup(category:c);
+  Future<void> _showAddSubcategoryDialog(CategoryData c) => _editGroup(parentId:c.id);
+  Future<void> _showEditSubcategoryDialog(SubcategoryData s) => _editGroup(parentId:s.categoryId,subcategory:s);
 
-  await showDialog<void>(
-    context: context,
-    builder: (dialogContext) {
-      return AlertDialog(
-        title: const Text('Add Category'),
-        content: SizedBox(
-          width: 420,
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              TextField(
-                controller: nameController,
-                autofocus: true,
-                decoration: const InputDecoration(
-                  labelText: 'Category Name',
-                  hintText: 'e.g. Chef Specials',
-                ),
-              ),
-              const SizedBox(height: 16),
-              TextField(
-                controller: nameArController,
-                textDirection: TextDirection.rtl,
-                decoration: const InputDecoration(
-                  labelText: 'Arabic Name',
-                  hintText: 'اسم الفئة',
-                ),
-              ),
-            ],
-          ),
+  Future<void> _editGroup({CategoryData? category,SubcategoryData? subcategory,String? parentId}) async {
+    if(_busy)return;
+    final name=TextEditingController(text:category?.name??subcategory?.name??'');
+    final arabic=TextEditingController(text:category?.nameAr??subcategory?.nameAr??'');
+    final id=category?.id??subcategory?.id;
+    final group=parentId==null?'Category':'Subcategory';
+    bool saving=false;
+    String? error;
+    final saved=await showDialog<bool>(context:context,barrierDismissible:false,builder:(dialogContext)=>
+      StatefulBuilder(builder:(context,update)=>PopScope(
+        canPop:!saving,
+        child:AlertDialog(
+          title:Text('${id==null?'Add':'Edit'} $group'),
+          content:SizedBox(width:420,child:SingleChildScrollView(child:Column(mainAxisSize:MainAxisSize.min,children:[
+            TextField(controller:name,enabled:!saving,autofocus:true,decoration:InputDecoration(labelText:'$group Name')),
+            const SizedBox(height:16),
+            TextField(controller:arabic,enabled:!saving,textDirection:TextDirection.rtl,
+              decoration:const InputDecoration(labelText:'Arabic Name')),
+            if(error!=null)Padding(padding:const EdgeInsets.only(top:12),child:Text(error!,style:const TextStyle(color:AppColors.danger))),
+          ]))),
+          actions:[
+            TextButton(onPressed:saving?null:()=>Navigator.pop(dialogContext,false),child:const Text('Cancel')),
+            ElevatedButton(onPressed:saving?null:() async {
+              if(name.text.trim().isEmpty||arabic.text.trim().isEmpty){update(()=>error='Enter both names.');return;}
+              final duplicate=parentId==null
+                ?MockData.menuCategories.any((c)=>c.id!=id&&c.name.trim().toLowerCase()==name.text.trim().toLowerCase())
+                :MockData.menuSubcategories.any((c)=>c.id!=id&&c.categoryId==parentId&&c.name.trim().toLowerCase()==name.text.trim().toLowerCase());
+              if(duplicate){update(()=>error='This name is already in use here.');return;}
+              update((){saving=true;error=null;});
+              try {
+                final orders=parentId==null?MockData.menuCategories.map((c)=>c.displayOrder)
+                  :MockData.menuSubcategories.where((c)=>c.categoryId==parentId).map((c)=>c.displayOrder);
+                final next=orders.fold<int>(0,(a,b)=>a>b?a:b)+1;
+                await MenuRepository().saveGroup(id:id,parentId:parentId,name:name.text.trim(),nameAr:arabic.text.trim(),
+                  sortOrder:category?.displayOrder??subcategory?.displayOrder??next);
+                if(dialogContext.mounted){update(()=>saving=false);Navigator.pop(dialogContext,true);}
+              }catch(e){if(dialogContext.mounted)update((){saving=false;error=MenuRepository.errorMessage(e);});}
+            },child:Text(saving?'Saving...':'Save')),
+          ],
         ),
-        actions: [
-          TextButton(
-            onPressed: () {
-              Navigator.pop(dialogContext);
-            },
-            child: const Text('Cancel'),
-          ),
-          ElevatedButton(
-            onPressed: () {
-              final name = nameController.text.trim();
-              final nameAr = nameArController.text.trim();
+      )));
+    // Wait for the closing dialog transition before disposing its field controllers.
+    await Future<void>.delayed(const Duration(milliseconds:300));
+    name.dispose();arabic.dispose();
+    if(saved==true&&mounted)await _checkSupabaseMenu();
+  }
 
-              if (name.isEmpty || nameAr.isEmpty) {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(
-                    content: Text(
-                      'Please enter both English and Arabic category names.',
-                    ),
-                  ),
-                );
-                return;
-              }
+  Future<void> _confirmDeleteCategory(CategoryData c) => _deleteGroup(c.id,c.name,false);
+  Future<void> _confirmDeleteSubcategory(SubcategoryData s) => _deleteGroup(s.id,s.name,true);
+  Future<void> _deleteGroup(String id,String name,bool subcategory) async {
+    if(_busy)return;
+    final confirmed=await showDialog<bool>(context:context,builder:(c)=>AlertDialog(
+      title:Text('Delete ${subcategory?'Subcategory':'Category'}?'),
+      content:Text('Delete "$name"? Assigned items must be moved first.'),
+      actions:[TextButton(onPressed:()=>Navigator.pop(c,false),child:const Text('Cancel')),
+        TextButton(onPressed:()=>Navigator.pop(c,true),child:const Text('Delete'))]));
+    if(confirmed==true&&mounted)await _mutate(()=>MenuRepository().deleteGroup(id,subcategory:subcategory));
+  }
 
-              setState(() {
-                MockData.menuCategories.add(
-                  CategoryData(
-                    id: 'cat_${DateTime.now().millisecondsSinceEpoch}',
-                    name: name,
-                    nameAr: nameAr,
-                    displayOrder: MockData.menuCategories.length + 1,
-                  ),
-                );
-              });
-
-              Navigator.pop(dialogContext);
-            },
-            child: const Text('Add Category'),
-          ),
-        ],
-      );
-    },
-  );
-}
-
-Future<void> _showEditCategoryDialog(CategoryData category) async {
-  final nameController = TextEditingController(text: category.name);
-  final nameArController = TextEditingController(text: category.nameAr);
-
-  await showDialog<void>(
-    context: context,
-    builder: (dialogContext) {
-      return AlertDialog(
-        title: const Text('Edit Category'),
-        content: SizedBox(
-          width: 420,
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              TextField(
-                controller: nameController,
-                autofocus: true,
-                decoration: const InputDecoration(
-                  labelText: 'Category Name',
-                ),
-              ),
-              const SizedBox(height: 16),
-              TextField(
-                controller: nameArController,
-                textDirection: TextDirection.rtl,
-                decoration: const InputDecoration(
-                  labelText: 'Arabic Name',
-                ),
-              ),
-            ],
-          ),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () {
-              Navigator.pop(dialogContext);
-            },
-            child: const Text('Cancel'),
-          ),
-          ElevatedButton(
-            onPressed: () {
-              final name = nameController.text.trim();
-              final nameAr = nameArController.text.trim();
-
-              if (name.isEmpty || nameAr.isEmpty) {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(
-                    content: Text(
-                      'Please enter both English and Arabic category names.',
-                    ),
-                  ),
-                );
-                return;
-              }
-
-              setState(() {
-                final index = MockData.menuCategories.indexWhere(
-                  (item) => item.id == category.id,
-                );
-
-                if (index == -1) return;
-
-                MockData.menuCategories[index] =
-                    MockData.menuCategories[index].copyWith(
-                  name: name,
-                  nameAr: nameAr,
-                );
-              });
-
-              Navigator.pop(dialogContext);
-            },
-            child: const Text('Save Changes'),
-          ),
-        ],
-      );
-    },
-  );
-
-  nameController.dispose();
-  nameArController.dispose();
-}
-Future<void> _confirmDeleteCategory(CategoryData category) async {
-  final confirmed = await showDialog<bool>(
-    context: context,
-    builder: (dialogContext) {
-      return AlertDialog(
-        title: const Text('Delete Category'),
-        content: Text(
-          'Are you sure you want to delete "${category.name}"?',
-        ),
-        actions: [
-          TextButton(
-            onPressed: () {
-              Navigator.pop(dialogContext, false);
-            },
-            child: const Text('Cancel'),
-          ),
-          TextButton(
-            onPressed: () {
-              Navigator.pop(dialogContext, true);
-            },
-            child: const Text(
-              'Delete',
-              style: TextStyle(
-                color: AppColors.danger,
-                fontWeight: FontWeight.w700,
-              ),
-            ),
-          ),
-        ],
-      );
-    },
-  );
-
-  if (confirmed != true) return;
-
-  setState(() {
-    MockData.menuCategories.removeWhere(
-      (item) => item.id == category.id,
-    );
-
-    MockData.menuCategories.sort(
-      (a, b) => a.displayOrder.compareTo(b.displayOrder),
-    );
-
-    for (var i = 0; i < MockData.menuCategories.length; i++) {
-      MockData.menuCategories[i] =
-          MockData.menuCategories[i].copyWith(
-        displayOrder: i + 1,
-      );
-    }
-  });
-}
-
-void _reorderCategories(int oldIndex, int newIndex) {
-  setState(() {
-    MockData.menuCategories.sort(
-      (a, b) => a.displayOrder.compareTo(b.displayOrder),
-    );
-
-  
-
-    final movedCategory =
-        MockData.menuCategories.removeAt(oldIndex);
-
-    MockData.menuCategories.insert(
-      newIndex,
-      movedCategory,
-    );
-
-    for (var i = 0; i < MockData.menuCategories.length; i++) {
-      MockData.menuCategories[i] =
-          MockData.menuCategories[i].copyWith(
-        displayOrder: i + 1,
-      );
-    }
-  });
-}
-void _reorderSubcategories(
-  String categoryId,
-  int oldIndex,
-  int newIndex,
-) {
-  setState(() {
-    final ordered = MockData.menuSubcategories
-        .where((item) => item.categoryId == categoryId)
-        .toList()
-      ..sort(
-        (a, b) => a.displayOrder.compareTo(b.displayOrder),
-      );
-
-    final movedSubcategory = ordered.removeAt(oldIndex);
-
-    ordered.insert(
-      newIndex,
-      movedSubcategory,
-    );
-
-    for (var i = 0; i < ordered.length; i++) {
-      final globalIndex =
-          MockData.menuSubcategories.indexWhere(
-        (item) => item.id == ordered[i].id,
-      );
-
-      if (globalIndex == -1) continue;
-
-      MockData.menuSubcategories[globalIndex] =
-          MockData.menuSubcategories[globalIndex].copyWith(
-        displayOrder: i + 1,
-      );
-    }
-  });
-}
-Future<void> _showAddSubcategoryDialog(CategoryData category) async {
-  final nameController = TextEditingController();
-  final nameArController = TextEditingController();
-
-  await showDialog<void>(
-    context: context,
-    builder: (dialogContext) {
-      return AlertDialog(
-        title: Text('Add Subcategory to ${category.name}'),
-        content: SizedBox(
-          width: 420,
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              TextField(
-                controller: nameController,
-                autofocus: true,
-                decoration: const InputDecoration(
-                  labelText: 'Subcategory Name',
-                  hintText: 'e.g. Special Karahi',
-                ),
-              ),
-              const SizedBox(height: 16),
-              TextField(
-                controller: nameArController,
-                textDirection: TextDirection.rtl,
-                decoration: const InputDecoration(
-                  labelText: 'Arabic Name',
-                  hintText: 'اسم الفئة الفرعية',
-                ),
-              ),
-            ],
-          ),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () {
-              Navigator.pop(dialogContext);
-            },
-            child: const Text('Cancel'),
-          ),
-          ElevatedButton(
-            onPressed: () {
-              final name = nameController.text.trim();
-              final nameAr = nameArController.text.trim();
-
-              if (name.isEmpty || nameAr.isEmpty) {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(
-                    content: Text(
-                      'Please enter both English and Arabic names.',
-                    ),
-                  ),
-                );
-                return;
-              }
-
-              final existingForCategory = MockData.menuSubcategories
-                  .where(
-                    (item) => item.categoryId == category.id,
-                  )
-                  .toList();
-
-              setState(() {
-                MockData.menuSubcategories.add(
-                  SubcategoryData(
-                    id: 'sub_${DateTime.now().millisecondsSinceEpoch}',
-                    categoryId: category.id,
-                    name: name,
-                    nameAr: nameAr,
-                    displayOrder: existingForCategory.length + 1,
-                  ),
-                );
-              });
-
-              Navigator.pop(dialogContext);
-            },
-            child: const Text('Add Subcategory'),
-          ),
-        ],
-      );
-    },
-  );
-
-  nameController.dispose();
-  nameArController.dispose();
-}
-Future<void> _showEditSubcategoryDialog(
-  SubcategoryData subcategory,
-) async {
-  final nameController =
-      TextEditingController(text: subcategory.name);
-  final nameArController =
-      TextEditingController(text: subcategory.nameAr);
-
-  await showDialog<void>(
-    context: context,
-    builder: (dialogContext) {
-      return AlertDialog(
-        title: const Text('Edit Subcategory'),
-        content: SizedBox(
-          width: 420,
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              TextField(
-                controller: nameController,
-                autofocus: true,
-                decoration: const InputDecoration(
-                  labelText: 'Subcategory Name',
-                ),
-              ),
-              const SizedBox(height: 16),
-              TextField(
-                controller: nameArController,
-                textDirection: TextDirection.rtl,
-                decoration: const InputDecoration(
-                  labelText: 'Arabic Name',
-                ),
-              ),
-            ],
-          ),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () {
-              Navigator.pop(dialogContext);
-            },
-            child: const Text('Cancel'),
-          ),
-          ElevatedButton(
-            onPressed: () {
-              final name = nameController.text.trim();
-              final nameAr = nameArController.text.trim();
-
-              if (name.isEmpty || nameAr.isEmpty) {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(
-                    content: Text(
-                      'Please enter both English and Arabic names.',
-                    ),
-                  ),
-                );
-                return;
-              }
-
-              setState(() {
-                final index =
-                    MockData.menuSubcategories.indexWhere(
-                  (item) => item.id == subcategory.id,
-                );
-
-                if (index == -1) return;
-
-                MockData.menuSubcategories[index] =
-                    MockData.menuSubcategories[index].copyWith(
-                  name: name,
-                  nameAr: nameAr,
-                );
-              });
-
-              Navigator.pop(dialogContext);
-            },
-            child: const Text('Save Changes'),
-          ),
-        ],
-      );
-    },
-  );
-
-  nameController.dispose();
-  nameArController.dispose();
-}
-Future<void> _confirmDeleteSubcategory(
-  SubcategoryData subcategory,
-) async {
-  final confirmed = await showDialog<bool>(
-    context: context,
-    builder: (dialogContext) {
-      return AlertDialog(
-        title: const Text('Delete Subcategory'),
-        content: Text(
-          'Are you sure you want to delete "${subcategory.name}"?',
-        ),
-        actions: [
-          TextButton(
-            onPressed: () {
-              Navigator.pop(dialogContext, false);
-            },
-            child: const Text('Cancel'),
-          ),
-          TextButton(
-            onPressed: () {
-              Navigator.pop(dialogContext, true);
-            },
-            child: const Text(
-              'Delete',
-              style: TextStyle(
-                color: AppColors.danger,
-                fontWeight: FontWeight.w700,
-              ),
-            ),
-          ),
-        ],
-      );
-    },
-  );
-
-  if (confirmed != true) return;
-
-  setState(() {
-    final categoryId = subcategory.categoryId;
-
-    MockData.menuSubcategories.removeWhere(
-      (item) => item.id == subcategory.id,
-    );
-
-    final remaining = MockData.menuSubcategories
-        .where(
-          (item) => item.categoryId == categoryId,
-        )
-        .toList()
-      ..sort(
-        (a, b) => a.displayOrder.compareTo(b.displayOrder),
-      );
-
-    for (var i = 0; i < remaining.length; i++) {
-      final index = MockData.menuSubcategories.indexWhere(
-        (item) => item.id == remaining[i].id,
-      );
-
-      if (index == -1) continue;
-
-      MockData.menuSubcategories[index] =
-          MockData.menuSubcategories[index].copyWith(
-        displayOrder: i + 1,
-      );
-    }
-  });
-}
+  Future<void> _reorderCategories(int oldIndex,int newIndex) async {
+    if(_busy)return;
+    final ordered=[...MockData.menuCategories]..sort((a,b)=>a.displayOrder.compareTo(b.displayOrder));
+    ordered.insert(newIndex,ordered.removeAt(oldIndex));
+    await _mutate(()=>MenuRepository().reorderGroups(ordered.map((c)=>c.id).toList()));
+  }
+  Future<void> _reorderSubcategories(String categoryId,int oldIndex,int newIndex) async {
+    if(_busy)return;
+    final ordered=MockData.menuSubcategories.where((s)=>s.categoryId==categoryId).toList()
+      ..sort((a,b)=>a.displayOrder.compareTo(b.displayOrder));
+    ordered.insert(newIndex,ordered.removeAt(oldIndex));
+    await _mutate(()=>MenuRepository().reorderGroups(ordered.map((c)=>c.id).toList(),parentId:categoryId));
+  }
 
 Widget _buildCategoriesView() {
   final categories = [...MockData.menuCategories]
@@ -902,21 +467,8 @@ Widget _buildCategoriesView() {
 
           Switch(
             value: category.active,
-            onChanged: (value) {
-              setState(() {
-                final itemIndex =
-                    MockData.menuCategories.indexWhere(
-                  (item) => item.id == category.id,
-                );
+            onChanged: (value) => _mutate(()=>MenuRepository().setGroupActive(category.id,value)),
 
-                if (itemIndex == -1) return;
-
-                MockData.menuCategories[itemIndex] =
-                    MockData.menuCategories[itemIndex].copyWith(
-                  active: value,
-                );
-              });
-            },
           ),
 
           IconButton(
@@ -1023,21 +575,8 @@ Widget _buildCategoriesView() {
 
           Switch(
             value: subcategory.active,
-            onChanged: (value) {
-              setState(() {
-                final subIndex =
-                    MockData.menuSubcategories.indexWhere(
-                  (item) => item.id == subcategory.id,
-                );
+            onChanged: (value) => _mutate(()=>MenuRepository().setGroupActive(subcategory.id,value,parentId:subcategory.categoryId)),
 
-                if (subIndex == -1) return;
-
-                MockData.menuSubcategories[subIndex] =
-                    MockData.menuSubcategories[subIndex].copyWith(
-                  active: value,
-                );
-              });
-            },
           ),
 
           IconButton(
@@ -1097,7 +636,9 @@ Widget _buildCategoriesView() {
   Widget build(BuildContext context) {
     final filtered = _filteredItems;
 
-    return LayoutBuilder(
+    if(_loading)return const Center(child:CircularProgressIndicator());
+    return Stack(children:[
+      AbsorbPointer(absorbing:_busy,child:LayoutBuilder(
       builder: (context, constraints) {
         final width = constraints.maxWidth;
 
@@ -1112,6 +653,10 @@ Widget _buildCategoriesView() {
             32,
           ),
           children: [
+            if(_loadError!=null)MaterialBanner(
+              content:Text(_loadError!),actions:[TextButton(onPressed:_checkSupabaseMenu,child:const Text('Retry'))]),
+            Align(alignment:Alignment.centerRight,child:IconButton(
+              tooltip:'Refresh menu',onPressed:_checkSupabaseMenu,icon:const Icon(Icons.refresh))),
             _PageHeader(
               onAdd: widget.onAdd,
             ),
@@ -1246,7 +791,9 @@ if (!_showCategories)
           ],
         );
       },
-    );
+    )),
+    if(_busy)const Positioned(top:0,left:0,right:0,child:LinearProgressIndicator()),
+    ]);
   }
 }
 
@@ -1332,7 +879,10 @@ class _CategoryBar extends StatelessWidget {
       spacing: 8,
       runSpacing: 8,
       children: [
-        for (final category in MockData.categories)
+        for (final category in [
+  'All',
+  ...MockData.menuCategories.map((category) => category.name),
+])
           ChoiceChip(
             label: Text(category),
             selected: selected == category,
@@ -1684,21 +1234,7 @@ class _MenuRow extends StatelessWidget {
             flex: 4,
             child: Row(
               children: [
-                item.imageBytes != null
-    ? ClipRRect(
-        borderRadius: BorderRadius.circular(10),
-        child: Image.memory(
-          item.imageBytes!,
-          width: 42,
-          height: 42,
-          fit: BoxFit.cover,
-        ),
-      )
-    : FoodThumb(
-        color: item.color,
-        size: 42,
-        radius: 10,
-      ),
+                _MenuImage(item:item,size:42,radius:10),
                 const SizedBox(width: 11),
                 Expanded(
                   child: Column(
@@ -2024,21 +1560,7 @@ class _MenuItemCard extends StatelessWidget {
             crossAxisAlignment:
                 CrossAxisAlignment.start,
             children: [
-              item.imageBytes != null
-    ? ClipRRect(
-        borderRadius: BorderRadius.circular(12),
-        child: Image.memory(
-          item.imageBytes!,
-          width: 54,
-          height: 54,
-          fit: BoxFit.cover,
-        ),
-      )
-    : FoodThumb(
-        color: item.color,
-        size: 54,
-        radius: 12,
-      ),
+              _MenuImage(item:item,size:54,radius:12),
               const SizedBox(width: 12),
               Expanded(
                 child: Column(
@@ -2213,5 +1735,20 @@ class _EmptyState extends StatelessWidget {
         ),
       ),
     );
+  }
+}
+class _MenuImage extends StatelessWidget {
+  const _MenuImage({required this.item,required this.size,required this.radius});
+  final MenuItemData item;
+  final double size;
+  final double radius;
+  @override
+  Widget build(BuildContext context) {
+    final fallback=FoodThumb(color:item.color,size:size,radius:radius);
+    return ClipRRect(borderRadius:BorderRadius.circular(radius),child:item.imageBytes!=null
+      ?Image.memory(item.imageBytes!,width:size,height:size,fit:BoxFit.cover,errorBuilder:(_,e,s)=>fallback)
+      :item.imageUrl?.isNotEmpty==true
+        ?Image.network(item.imageUrl!,width:size,height:size,fit:BoxFit.cover,errorBuilder:(_,e,s)=>fallback)
+        :fallback);
   }
 }

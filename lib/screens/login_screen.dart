@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-
+import 'package:supabase_flutter/supabase_flutter.dart';
 import '../theme/app_colors.dart';
 import 'admin_shell.dart';
 
@@ -14,13 +14,94 @@ class _LoginScreenState extends State<LoginScreen> {
   bool _hidePassword = true;
   bool _rememberMe = true;
 
-  void _signIn() {
+  final _emailController = TextEditingController();
+final _passwordController = TextEditingController();
+bool _isLoading = false;
+
+void _showMessage(String message) {
+  if (!mounted) return;
+  ScaffoldMessenger.of(context).showSnackBar(
+    SnackBar(content: Text(message)),
+  );
+}
+
+Future<void> _signIn() async {
+  if (_isLoading) return;
+
+  final email = _emailController.text.trim();
+  final password = _passwordController.text;
+
+  if (email.isEmpty || password.isEmpty) {
+    _showMessage('Please enter your email and password.');
+    return;
+  }
+
+  setState(() => _isLoading = true);
+
+  final supabase = Supabase.instance.client;
+  bool accessApproved = false;
+
+  try {
+    final response = await supabase.auth.signInWithPassword(
+      email: email,
+      password: password,
+    );
+
+    if (response.user == null || response.session == null) {
+      _showMessage('Sign in failed. Please try again.');
+      return;
+    }
+
+    final allowed = await supabase.rpc(
+      'can_manage_menu',
+      params: {
+        'target_restaurant_id':
+            '11111111-1111-1111-1111-111111111111',
+      },
+    );
+
+    if (allowed != true) {
+      _showMessage('You do not have Meerath admin access.');
+      return;
+    }
+
+    accessApproved = true;
+    _passwordController.clear();
+
+    if (!mounted) return;
+
     Navigator.of(context).pushReplacement(
       MaterialPageRoute(
         builder: (_) => const AdminShell(),
       ),
     );
+  } on AuthException catch (error) {
+    _showMessage(error.message);
+  } on PostgrestException catch (_) {
+    _showMessage('Unable to verify staff access. Please try again.');
+  } catch (_) {
+    _showMessage('Connection failed. Check your internet and try again.');
+  } finally {
+    if (!accessApproved) {
+      try {
+        await supabase.auth.signOut(scope: SignOutScope.local);
+      } catch (_) {
+        // Keep the dashboard closed even if session cleanup fails.
+      }
+    }
+
+    if (mounted) {
+      setState(() => _isLoading = false);
+    }
   }
+}
+
+@override
+void dispose() {
+  _emailController.dispose();
+  _passwordController.dispose();
+  super.dispose();
+}
 
   @override
   Widget build(BuildContext context) {
@@ -135,15 +216,18 @@ class _LoginScreenState extends State<LoginScreen> {
 
           const SizedBox(height: 8),
 
-          const TextField(
-            decoration: InputDecoration(
-              hintText: 'Enter your work email',
-              prefixIcon: Icon(
-                Icons.mail_outline_rounded,
-                color: AppColors.textMuted,
-              ),
-            ),
-          ),
+          TextField(
+  controller: _emailController,
+  enabled: !_isLoading,
+  keyboardType: TextInputType.emailAddress,
+  decoration: const InputDecoration(
+    hintText: 'Enter your work email',
+    prefixIcon: Icon(
+      Icons.mail_outline_rounded,
+      color: AppColors.textMuted,
+    ),
+  ),
+),
 
           const SizedBox(height: 18),
 
@@ -158,6 +242,8 @@ class _LoginScreenState extends State<LoginScreen> {
           const SizedBox(height: 8),
 
           TextField(
+            controller: _passwordController,
+enabled: !_isLoading,
             obscureText: _hidePassword,
             decoration: InputDecoration(
               hintText: 'Enter your password',
@@ -222,14 +308,14 @@ class _LoginScreenState extends State<LoginScreen> {
                 borderRadius: BorderRadius.circular(12),
               ),
               child: ElevatedButton(
-                onPressed: _signIn,
+                onPressed: _isLoading ? null : _signIn,
                 style: ElevatedButton.styleFrom(
                   backgroundColor: Colors.transparent,
                   shadowColor: Colors.transparent,
                   foregroundColor: Colors.black,
                 ),
-                child: const Text(
-                  'Sign In',
+                child: Text(
+  _isLoading ? 'Signing in...' : 'Sign In',
                   style: TextStyle(
                     fontSize: 15,
                     fontWeight: FontWeight.w800,
