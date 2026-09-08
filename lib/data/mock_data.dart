@@ -2,151 +2,7 @@ import 'package:flutter/material.dart';
 import 'dart:typed_data';
 import '../theme/app_colors.dart';
 
-class MenuItemData {
-  const MenuItemData({
-    required this.id,
-    required this.name,
-    required this.nameAr,
-    required this.description,
-    required this.longDescription,
-    required this.category,
-    this.subcategory = '',
-    this.categoryId = '',
-    this.subcategoryId,
-    this.descriptionAr = '',
-    this.imageUrl,
-    this.attributes = const {},
-    required this.price,
-    this.compareAtPrice,
-    required this.availableAt,
-    required this.portions,
-    required this.available,
-    required this.featured,
-    required this.status,
-    this.prepTime = 25,
-    this.calories = 520,
-    this.servingSize = '1 plate',
-    this.spiceLevel = 2,
-    this.bestSeller = false,
-    this.newItem = false,
-    this.imageBytes,
-    this.imageName,
-    this.color = AppColors.accent,
-  });
-
-  final String id;
-  final String name;
-  final String nameAr;
-  final String description;
-  final String longDescription;
-  final String category;
-  final String subcategory;
-  final String categoryId;
-  final String? subcategoryId;
-  final String descriptionAr;
-  final String? imageUrl;
-  final Map<String, dynamic> attributes;
-  final double price;
-  final double? compareAtPrice;
-  final String availableAt;
-  final int portions;
-  final bool available;
-  final bool featured;
-  final String status;
-  final int prepTime;
-  final int calories;
-  final String servingSize;
-  final int spiceLevel;
-  final bool bestSeller;
-  final bool newItem;
-  final Color color;
-  final Uint8List? imageBytes;
-final String? imageName;
-
-  MenuItemData copyWith({bool? available, bool? featured, String? status}) {
-    return MenuItemData(
-      id: id,
-      name: name,
-      nameAr: nameAr,
-      description: description,
-      longDescription: longDescription,
-      category: category,
-      subcategory: subcategory,
-      categoryId: categoryId,
-      subcategoryId: subcategoryId,
-      descriptionAr: descriptionAr,
-      imageUrl: imageUrl,
-      attributes: attributes,
-      price: price,
-      compareAtPrice: compareAtPrice,
-      availableAt: availableAt,
-      portions: portions,
-      available: available ?? this.available,
-      featured: featured ?? this.featured,
-      status: status ?? this.status,
-      prepTime: prepTime,
-      calories: calories,
-      servingSize: servingSize,
-      spiceLevel: spiceLevel,
-      bestSeller: bestSeller,
-      newItem: newItem,
-      color: color,
-      imageBytes: imageBytes,
-      imageName: imageName,
-    );
-  }
-}
-
-class OrderData {
-  const OrderData({
-    required this.id,
-    required this.customer,
-    required this.items,
-    required this.amount,
-    required this.status,
-    required this.time,
-    required this.source,
-  });
-
-  final String id;
-  final String customer;
-  final String items;
-  final double amount;
-  final String status;
-  final String time;
-  final String source;
-}
-
-class KpiData {
-  const KpiData({
-    required this.label,
-    required this.value,
-    required this.trend,
-    required this.sparkline,
-    required this.icon,
-  });
-
-  final String label;
-  final String value;
-  final String trend;
-  final List<double> sparkline;
-  final IconData icon;
-}
-
-class AddonData {
-  const AddonData({
-    required this.name,
-    required this.type,
-    required this.price,
-    required this.required,
-  });
-
-  final String name;
-  final String type;
-  final String price;
-  final bool required;
-}
-
+// ⬇️ CLASSES ⬇️
 class CategoryData {
   const CategoryData({
     required this.id,
@@ -177,6 +33,7 @@ class CategoryData {
     );
   }
 }
+
 class SubcategoryData {
   const SubcategoryData({
     required this.id,
@@ -211,316 +68,488 @@ class SubcategoryData {
     );
   }
 }
+
+class AddonData {
+  const AddonData({
+    required this.name,
+    required this.type,
+    required this.price,
+    required this.required,
+  });
+
+  final String name;
+  final String type;
+  final String price;
+  final bool required;
+}
+
+class KpiData {
+  const KpiData({
+    required this.label,
+    required this.value,
+    required this.trend,
+    required this.sparkline,
+    required this.icon,
+  });
+
+  final String label;
+  final String value;
+  final String trend;
+  final List<double> sparkline;
+  final IconData icon;
+}
+
+class OrderData {
+  const OrderData({
+    required this.id,
+    required this.customer,
+    required this.items,
+    required this.amount,
+    required this.status,
+    required this.time,
+    required this.source,
+  });
+
+  final String id;
+  final String customer;
+  final String items;
+  final double amount;
+  final String status;
+  final String time;
+  final String source;
+}
+
+// ⬇️ MENU ITEM DATA (Offer fields added) ⬇️
+class MenuItemData {
+  const MenuItemData({
+    required this.id,
+    required this.name,
+    required this.nameAr,
+    required this.description,
+    required this.longDescription,
+    required this.category,
+    this.subcategory = '',
+    this.categoryId = '',
+    this.subcategoryId,
+    this.descriptionAr = '',
+    this.imageUrl,
+    this.attributes = const {},
+    required this.price,
+    this.compareAtPrice,
+    required this.availableAt,
+    required this.portions,
+    required this.available,
+    required this.featured,
+    required this.status,
+    this.prepTime = 25,
+    this.calories = 520,
+    this.servingSize = '1 plate',
+    this.spiceLevel = 2,
+    this.bestSeller = false,
+    this.newItem = false,
+    this.imageBytes,
+    this.imageName,
+    this.color = AppColors.accent,
+    // ⬇️ OFFER FIELDS ⬇️
+    this.hasOffer = false,
+    this.offerDiscount,
+    this.offerType,
+    this.offerValidFrom,
+    this.offerValidTo,
+    this.offerActive = false,
+  });
+
+  final String id;
+  final String name;
+  final String nameAr;
+  final String description;
+  final String longDescription;
+  final String category;
+  final String subcategory;
+  final String categoryId;
+  final String? subcategoryId;
+  final String descriptionAr;
+  final String? imageUrl;
+  final Map<String, dynamic> attributes;
+  final double price;
+  final double? compareAtPrice;
+  final String availableAt;
+  final int portions;
+  final bool available;
+  final bool featured;
+  final String status;
+  final int prepTime;
+  final int calories;
+  final String servingSize;
+  final int spiceLevel;
+  final bool bestSeller;
+  final bool newItem;
+  final Color color;
+  final Uint8List? imageBytes;
+  final String? imageName;
+
+  final bool hasOffer;
+  final double? offerDiscount;
+  final String? offerType;
+  final DateTime? offerValidFrom;
+  final DateTime? offerValidTo;
+  final bool offerActive;
+
+  MenuItemData copyWith({
+    bool? available,
+    bool? featured,
+    String? status,
+    bool? hasOffer,
+    double? offerDiscount,
+    String? offerType,
+    DateTime? offerValidFrom,
+    DateTime? offerValidTo,
+    bool? offerActive,
+  }) {
+    return MenuItemData(
+      id: id,
+      name: name,
+      nameAr: nameAr,
+      description: description,
+      longDescription: longDescription,
+      category: category,
+      subcategory: subcategory,
+      categoryId: categoryId,
+      subcategoryId: subcategoryId,
+      descriptionAr: descriptionAr,
+      imageUrl: imageUrl,
+      attributes: attributes,
+      price: price,
+      compareAtPrice: compareAtPrice,
+      availableAt: availableAt,
+      portions: portions,
+      available: available ?? this.available,
+      featured: featured ?? this.featured,
+      status: status ?? this.status,
+      prepTime: prepTime,
+      calories: calories,
+      servingSize: servingSize,
+      spiceLevel: spiceLevel,
+      bestSeller: bestSeller,
+      newItem: newItem,
+      color: color,
+      imageBytes: imageBytes,
+      imageName: imageName,
+      hasOffer: hasOffer ?? this.hasOffer,
+      offerDiscount: offerDiscount ?? this.offerDiscount,
+      offerType: offerType ?? this.offerType,
+      offerValidFrom: offerValidFrom ?? this.offerValidFrom,
+      offerValidTo: offerValidTo ?? this.offerValidTo,
+      offerActive: offerActive ?? this.offerActive,
+    );
+  }
+}
+
+// ⬇️ MOCK DATA ⬇️
 class MockData {
+  // ---------- CATEGORIES ----------
   static final List<CategoryData> menuCategories = [
-  const CategoryData(
-    id: 'cat_starters',
-    name: 'Starters',
-    nameAr: 'المقبلات',
-    displayOrder: 1,
-  ),
-  const CategoryData(
-    id: 'cat_rolls',
-    name: 'Rolls',
-    nameAr: 'الرولز',
-    displayOrder: 2,
-  ),
-  const CategoryData(
-    id: 'cat_karahi',
-    name: 'Karahi',
-    nameAr: 'كراهي',
-    displayOrder: 3,
-  ),
-  const CategoryData(
-    id: 'cat_handi',
-    name: 'Handi',
-    nameAr: 'هاندي',
-    displayOrder: 4,
-  ),
-  const CategoryData(
-    id: 'cat_curries',
-    name: 'Curries',
-    nameAr: 'أطباق الكاري',
-    displayOrder: 5,
-  ),
-  const CategoryData(
-    id: 'cat_bbq_grill',
-    name: 'BBQ & Grill',
-    nameAr: 'الباربكيو والمشويات',
-    displayOrder: 6,
-  ),
-  const CategoryData(
-    id: 'cat_biryani_rice',
-    name: 'Biryani & Rice',
-    nameAr: 'البرياني والأرز',
-    displayOrder: 7,
-  ),
-  const CategoryData(
-    id: 'cat_chinese',
-    name: 'Chinese',
-    nameAr: 'الأطباق الصينية',
-    displayOrder: 8,
-  ),
-  const CategoryData(
-    id: 'cat_desserts',
-    name: 'Desserts',
-    nameAr: 'الحلويات',
-    displayOrder: 9,
-  ),
-  const CategoryData(
-    id: 'cat_hot_drinks',
-    name: 'Hot Drinks',
-    nameAr: 'المشروبات الساخنة',
-    displayOrder: 10,
-  ),
-  const CategoryData(
-    id: 'cat_cold_drinks',
-    name: 'Cold Drinks',
-    nameAr: 'المشروبات الباردة',
-    displayOrder: 11,
-  ),
-  const CategoryData(
-    id: 'cat_roti_naan',
-    name: 'Roti & Naan',
-    nameAr: 'الروتي والنان',
-    displayOrder: 12,
-  ),
-];
-static final List<SubcategoryData> menuSubcategories = [
-  // Starters
-  const SubcategoryData(
-    id: 'sub_starters_soups',
-    categoryId: 'cat_starters',
-    name: 'Soups',
-    nameAr: 'الشوربات',
-    displayOrder: 1,
-  ),
-  const SubcategoryData(
-    id: 'sub_starters_snacks',
-    categoryId: 'cat_starters',
-    name: 'Snacks & Appetizers',
-    nameAr: 'المقبلات والوجبات الخفيفة',
-    displayOrder: 2,
-  ),
+    const CategoryData(
+      id: 'cat_starters',
+      name: 'Starters',
+      nameAr: 'المقبلات',
+      displayOrder: 1,
+    ),
+    const CategoryData(
+      id: 'cat_rolls',
+      name: 'Rolls',
+      nameAr: 'الرولز',
+      displayOrder: 2,
+    ),
+    const CategoryData(
+      id: 'cat_karahi',
+      name: 'Karahi',
+      nameAr: 'كراهي',
+      displayOrder: 3,
+    ),
+    const CategoryData(
+      id: 'cat_handi',
+      name: 'Handi',
+      nameAr: 'هاندي',
+      displayOrder: 4,
+    ),
+    const CategoryData(
+      id: 'cat_curries',
+      name: 'Curries',
+      nameAr: 'أطباق الكاري',
+      displayOrder: 5,
+    ),
+    const CategoryData(
+      id: 'cat_bbq_grill',
+      name: 'BBQ & Grill',
+      nameAr: 'الباربكيو والمشويات',
+      displayOrder: 6,
+    ),
+    const CategoryData(
+      id: 'cat_biryani_rice',
+      name: 'Biryani & Rice',
+      nameAr: 'البرياني والأرز',
+      displayOrder: 7,
+    ),
+    const CategoryData(
+      id: 'cat_chinese',
+      name: 'Chinese',
+      nameAr: 'الأطباق الصينية',
+      displayOrder: 8,
+    ),
+    const CategoryData(
+      id: 'cat_desserts',
+      name: 'Desserts',
+      nameAr: 'الحلويات',
+      displayOrder: 9,
+    ),
+    const CategoryData(
+      id: 'cat_hot_drinks',
+      name: 'Hot Drinks',
+      nameAr: 'المشروبات الساخنة',
+      displayOrder: 10,
+    ),
+    const CategoryData(
+      id: 'cat_cold_drinks',
+      name: 'Cold Drinks',
+      nameAr: 'المشروبات الباردة',
+      displayOrder: 11,
+    ),
+    const CategoryData(
+      id: 'cat_roti_naan',
+      name: 'Roti & Naan',
+      nameAr: 'الروتي والنان',
+      displayOrder: 12,
+    ),
+  ];
 
-  // Rolls
-  const SubcategoryData(
-    id: 'sub_rolls_chicken',
-    categoryId: 'cat_rolls',
-    name: 'Chicken Rolls',
-    nameAr: 'رول الدجاج',
-    displayOrder: 1,
-  ),
-  const SubcategoryData(
-    id: 'sub_rolls_beef',
-    categoryId: 'cat_rolls',
-    name: 'Beef Rolls',
-    nameAr: 'رول اللحم',
-    displayOrder: 2,
-  ),
+  // ---------- SUBCATEGORIES ----------
+  static final List<SubcategoryData> menuSubcategories = [
+    // Starters
+    const SubcategoryData(
+      id: 'sub_starters_soups',
+      categoryId: 'cat_starters',
+      name: 'Soups',
+      nameAr: 'الشوربات',
+      displayOrder: 1,
+    ),
+    const SubcategoryData(
+      id: 'sub_starters_snacks',
+      categoryId: 'cat_starters',
+      name: 'Snacks & Appetizers',
+      nameAr: 'المقبلات والوجبات الخفيفة',
+      displayOrder: 2,
+    ),
+    // Rolls
+    const SubcategoryData(
+      id: 'sub_rolls_chicken',
+      categoryId: 'cat_rolls',
+      name: 'Chicken Rolls',
+      nameAr: 'رول الدجاج',
+      displayOrder: 1,
+    ),
+    const SubcategoryData(
+      id: 'sub_rolls_beef',
+      categoryId: 'cat_rolls',
+      name: 'Beef Rolls',
+      nameAr: 'رول اللحم',
+      displayOrder: 2,
+    ),
+    // Karahi
+    const SubcategoryData(
+      id: 'sub_karahi_chicken',
+      categoryId: 'cat_karahi',
+      name: 'Chicken Karahi',
+      nameAr: 'كراهي دجاج',
+      displayOrder: 1,
+    ),
+    const SubcategoryData(
+      id: 'sub_karahi_mutton',
+      categoryId: 'cat_karahi',
+      name: 'Mutton Karahi',
+      nameAr: 'كراهي لحم ضأن',
+      displayOrder: 2,
+    ),
+    // Handi
+    const SubcategoryData(
+      id: 'sub_handi_chicken',
+      categoryId: 'cat_handi',
+      name: 'Chicken Handi',
+      nameAr: 'هاندي دجاج',
+      displayOrder: 1,
+    ),
+    const SubcategoryData(
+      id: 'sub_handi_mutton',
+      categoryId: 'cat_handi',
+      name: 'Mutton Handi',
+      nameAr: 'هاندي لحم ضأن',
+      displayOrder: 2,
+    ),
+    // Curries
+    const SubcategoryData(
+      id: 'sub_curries_chicken',
+      categoryId: 'cat_curries',
+      name: 'Chicken Curries',
+      nameAr: 'كاري الدجاج',
+      displayOrder: 1,
+    ),
+    const SubcategoryData(
+      id: 'sub_curries_mutton',
+      categoryId: 'cat_curries',
+      name: 'Mutton Curries',
+      nameAr: 'كاري لحم الضأن',
+      displayOrder: 2,
+    ),
+    const SubcategoryData(
+      id: 'sub_curries_beef',
+      categoryId: 'cat_curries',
+      name: 'Beef Curries',
+      nameAr: 'كاري اللحم البقري',
+      displayOrder: 3,
+    ),
+    // BBQ
+    const SubcategoryData(
+      id: 'sub_bbq_chicken',
+      categoryId: 'cat_bbq_grill',
+      name: 'Chicken BBQ',
+      nameAr: 'مشويات الدجاج',
+      displayOrder: 1,
+    ),
+    const SubcategoryData(
+      id: 'sub_bbq_beef',
+      categoryId: 'cat_bbq_grill',
+      name: 'Beef BBQ',
+      nameAr: 'مشويات اللحم البقري',
+      displayOrder: 2,
+    ),
+    const SubcategoryData(
+      id: 'sub_bbq_kababs',
+      categoryId: 'cat_bbq_grill',
+      name: 'Kababs',
+      nameAr: 'الكباب',
+      displayOrder: 3,
+    ),
+    // Biryani & Rice
+    const SubcategoryData(
+      id: 'sub_rice_biryani',
+      categoryId: 'cat_biryani_rice',
+      name: 'Biryani',
+      nameAr: 'برياني',
+      displayOrder: 1,
+    ),
+    const SubcategoryData(
+      id: 'sub_rice_pulao',
+      categoryId: 'cat_biryani_rice',
+      name: 'Pulao',
+      nameAr: 'بلاو',
+      displayOrder: 2,
+    ),
+    const SubcategoryData(
+      id: 'sub_rice_fried',
+      categoryId: 'cat_biryani_rice',
+      name: 'Fried Rice',
+      nameAr: 'أرز مقلي',
+      displayOrder: 3,
+    ),
+    // Chinese
+    const SubcategoryData(
+      id: 'sub_chinese_chicken',
+      categoryId: 'cat_chinese',
+      name: 'Chicken',
+      nameAr: 'دجاج',
+      displayOrder: 1,
+    ),
+    const SubcategoryData(
+      id: 'sub_chinese_beef',
+      categoryId: 'cat_chinese',
+      name: 'Beef',
+      nameAr: 'لحم بقري',
+      displayOrder: 2,
+    ),
+    const SubcategoryData(
+      id: 'sub_chinese_rice_noodles',
+      categoryId: 'cat_chinese',
+      name: 'Rice & Noodles',
+      nameAr: 'الأرز والنودلز',
+      displayOrder: 3,
+    ),
+    // Desserts
+    const SubcategoryData(
+      id: 'sub_desserts_traditional',
+      categoryId: 'cat_desserts',
+      name: 'Traditional Desserts',
+      nameAr: 'الحلويات التقليدية',
+      displayOrder: 1,
+    ),
+    const SubcategoryData(
+      id: 'sub_desserts_icecream',
+      categoryId: 'cat_desserts',
+      name: 'Ice Cream',
+      nameAr: 'الآيس كريم',
+      displayOrder: 2,
+    ),
+    // Hot Drinks
+    const SubcategoryData(
+      id: 'sub_hot_tea',
+      categoryId: 'cat_hot_drinks',
+      name: 'Tea',
+      nameAr: 'الشاي',
+      displayOrder: 1,
+    ),
+    const SubcategoryData(
+      id: 'sub_hot_coffee',
+      categoryId: 'cat_hot_drinks',
+      name: 'Coffee',
+      nameAr: 'القهوة',
+      displayOrder: 2,
+    ),
+    // Cold Drinks
+    const SubcategoryData(
+      id: 'sub_cold_soft',
+      categoryId: 'cat_cold_drinks',
+      name: 'Soft Drinks',
+      nameAr: 'المشروبات الغازية',
+      displayOrder: 1,
+    ),
+    const SubcategoryData(
+      id: 'sub_cold_juices',
+      categoryId: 'cat_cold_drinks',
+      name: 'Fresh Juices',
+      nameAr: 'العصائر الطازجة',
+      displayOrder: 2,
+    ),
+    const SubcategoryData(
+      id: 'sub_cold_special',
+      categoryId: 'cat_cold_drinks',
+      name: 'Special Drinks',
+      nameAr: 'المشروبات الخاصة',
+      displayOrder: 3,
+    ),
+    // Roti & Naan
+    const SubcategoryData(
+      id: 'sub_roti',
+      categoryId: 'cat_roti_naan',
+      name: 'Roti',
+      nameAr: 'روتي',
+      displayOrder: 1,
+    ),
+    const SubcategoryData(
+      id: 'sub_naan',
+      categoryId: 'cat_roti_naan',
+      name: 'Naan',
+      nameAr: 'نان',
+      displayOrder: 2,
+    ),
+    const SubcategoryData(
+      id: 'sub_paratha',
+      categoryId: 'cat_roti_naan',
+      name: 'Paratha',
+      nameAr: 'براتا',
+      displayOrder: 3,
+    ),
+  ];
 
-  // Karahi
-  const SubcategoryData(
-    id: 'sub_karahi_chicken',
-    categoryId: 'cat_karahi',
-    name: 'Chicken Karahi',
-    nameAr: 'كراهي دجاج',
-    displayOrder: 1,
-  ),
-  const SubcategoryData(
-    id: 'sub_karahi_mutton',
-    categoryId: 'cat_karahi',
-    name: 'Mutton Karahi',
-    nameAr: 'كراهي لحم ضأن',
-    displayOrder: 2,
-  ),
-
-  // Handi
-  const SubcategoryData(
-    id: 'sub_handi_chicken',
-    categoryId: 'cat_handi',
-    name: 'Chicken Handi',
-    nameAr: 'هاندي دجاج',
-    displayOrder: 1,
-  ),
-  const SubcategoryData(
-    id: 'sub_handi_mutton',
-    categoryId: 'cat_handi',
-    name: 'Mutton Handi',
-    nameAr: 'هاندي لحم ضأن',
-    displayOrder: 2,
-  ),
-
-  // Curries
-  const SubcategoryData(
-    id: 'sub_curries_chicken',
-    categoryId: 'cat_curries',
-    name: 'Chicken Curries',
-    nameAr: 'كاري الدجاج',
-    displayOrder: 1,
-  ),
-  const SubcategoryData(
-    id: 'sub_curries_mutton',
-    categoryId: 'cat_curries',
-    name: 'Mutton Curries',
-    nameAr: 'كاري لحم الضأن',
-    displayOrder: 2,
-  ),
-  const SubcategoryData(
-    id: 'sub_curries_beef',
-    categoryId: 'cat_curries',
-    name: 'Beef Curries',
-    nameAr: 'كاري اللحم البقري',
-    displayOrder: 3,
-  ),
-
-  // BBQ & Grill
-  const SubcategoryData(
-    id: 'sub_bbq_chicken',
-    categoryId: 'cat_bbq_grill',
-    name: 'Chicken BBQ',
-    nameAr: 'مشويات الدجاج',
-    displayOrder: 1,
-  ),
-  const SubcategoryData(
-    id: 'sub_bbq_beef',
-    categoryId: 'cat_bbq_grill',
-    name: 'Beef BBQ',
-    nameAr: 'مشويات اللحم البقري',
-    displayOrder: 2,
-  ),
-  const SubcategoryData(
-    id: 'sub_bbq_kababs',
-    categoryId: 'cat_bbq_grill',
-    name: 'Kababs',
-    nameAr: 'الكباب',
-    displayOrder: 3,
-  ),
-
-  // Biryani & Rice
-  const SubcategoryData(
-    id: 'sub_rice_biryani',
-    categoryId: 'cat_biryani_rice',
-    name: 'Biryani',
-    nameAr: 'برياني',
-    displayOrder: 1,
-  ),
-  const SubcategoryData(
-    id: 'sub_rice_pulao',
-    categoryId: 'cat_biryani_rice',
-    name: 'Pulao',
-    nameAr: 'بلاو',
-    displayOrder: 2,
-  ),
-  const SubcategoryData(
-    id: 'sub_rice_fried',
-    categoryId: 'cat_biryani_rice',
-    name: 'Fried Rice',
-    nameAr: 'أرز مقلي',
-    displayOrder: 3,
-  ),
-
-  // Chinese
-  const SubcategoryData(
-    id: 'sub_chinese_chicken',
-    categoryId: 'cat_chinese',
-    name: 'Chicken',
-    nameAr: 'دجاج',
-    displayOrder: 1,
-  ),
-  const SubcategoryData(
-    id: 'sub_chinese_beef',
-    categoryId: 'cat_chinese',
-    name: 'Beef',
-    nameAr: 'لحم بقري',
-    displayOrder: 2,
-  ),
-  const SubcategoryData(
-    id: 'sub_chinese_rice_noodles',
-    categoryId: 'cat_chinese',
-    name: 'Rice & Noodles',
-    nameAr: 'الأرز والنودلز',
-    displayOrder: 3,
-  ),
-
-  // Desserts
-  const SubcategoryData(
-    id: 'sub_desserts_traditional',
-    categoryId: 'cat_desserts',
-    name: 'Traditional Desserts',
-    nameAr: 'الحلويات التقليدية',
-    displayOrder: 1,
-  ),
-  const SubcategoryData(
-    id: 'sub_desserts_icecream',
-    categoryId: 'cat_desserts',
-    name: 'Ice Cream',
-    nameAr: 'الآيس كريم',
-    displayOrder: 2,
-  ),
-
-  // Hot Drinks
-  const SubcategoryData(
-    id: 'sub_hot_tea',
-    categoryId: 'cat_hot_drinks',
-    name: 'Tea',
-    nameAr: 'الشاي',
-    displayOrder: 1,
-  ),
-  const SubcategoryData(
-    id: 'sub_hot_coffee',
-    categoryId: 'cat_hot_drinks',
-    name: 'Coffee',
-    nameAr: 'القهوة',
-    displayOrder: 2,
-  ),
-
-  // Cold Drinks
-  const SubcategoryData(
-    id: 'sub_cold_soft',
-    categoryId: 'cat_cold_drinks',
-    name: 'Soft Drinks',
-    nameAr: 'المشروبات الغازية',
-    displayOrder: 1,
-  ),
-  const SubcategoryData(
-    id: 'sub_cold_juices',
-    categoryId: 'cat_cold_drinks',
-    name: 'Fresh Juices',
-    nameAr: 'العصائر الطازجة',
-    displayOrder: 2,
-  ),
-  const SubcategoryData(
-    id: 'sub_cold_special',
-    categoryId: 'cat_cold_drinks',
-    name: 'Special Drinks',
-    nameAr: 'المشروبات الخاصة',
-    displayOrder: 3,
-  ),
-
-  // Roti & Naan
-  const SubcategoryData(
-    id: 'sub_roti',
-    categoryId: 'cat_roti_naan',
-    name: 'Roti',
-    nameAr: 'روتي',
-    displayOrder: 1,
-  ),
-  const SubcategoryData(
-    id: 'sub_naan',
-    categoryId: 'cat_roti_naan',
-    name: 'Naan',
-    nameAr: 'نان',
-    displayOrder: 2,
-  ),
-  const SubcategoryData(
-    id: 'sub_paratha',
-    categoryId: 'cat_roti_naan',
-    name: 'Paratha',
-    nameAr: 'براتا',
-    displayOrder: 3,
-  ),
-];
+  // ---------- BRANCHES ----------
   static const branches = [
     'Meerath Riyadh',
     'Meerath Dammam',
@@ -537,6 +566,7 @@ static final List<SubcategoryData> menuSubcategories = [
     'Drinks',
   ];
 
+  // ---------- KPIs ----------
   static const kpis = [
     KpiData(
       label: 'Today Sales',
@@ -568,6 +598,7 @@ static final List<SubcategoryData> menuSubcategories = [
     ),
   ];
 
+  // ---------- SALES DATA ----------
   static const salesLast7Days = [
     ('May 11', 42.0),
     ('May 12', 58.0),
@@ -579,15 +610,16 @@ static final List<SubcategoryData> menuSubcategories = [
   ];
 
   static const salesBySource = [
-  ('Customer App', 0.32, AppColors.accent),
-  ('POS', 0.38, Color(0xFFFFC14D)),
-  ('Website', 0.05, AppColors.info),
-  ('HungerStation', 0.10, AppColors.purple),
-  ('Keeta', 0.07, AppColors.teal),
-  ('Talabat', 0.05, AppColors.green),
-  ('Manual', 0.03, AppColors.textMuted),
-];
+    ('Customer App', 0.32, AppColors.accent),
+    ('POS', 0.38, Color(0xFFFFC14D)),
+    ('Website', 0.05, AppColors.info),
+    ('HungerStation', 0.10, AppColors.purple),
+    ('Keeta', 0.07, AppColors.teal),
+    ('Talabat', 0.05, AppColors.green),
+    ('Manual', 0.03, AppColors.textMuted),
+  ];
 
+  // ---------- TOP ITEMS ----------
   static const topItems = [
     ('Chicken Biryani', 'SAR 28.00', '84 orders', Color(0xFFC9782A)),
     ('Malai Boti Roll', 'SAR 22.00', '71 orders', Color(0xFF8A5A32)),
@@ -595,6 +627,7 @@ static final List<SubcategoryData> menuSubcategories = [
     ('Rahu Fish', 'SAR 38.00', '49 orders', Color(0xFF2F6B6B)),
   ];
 
+  // ---------- RECENT ORDERS ----------
   static const recentOrders = [
     OrderData(
       id: '#MR-1842',
@@ -643,14 +676,14 @@ static final List<SubcategoryData> menuSubcategories = [
     ),
   ];
 
+  // ---------- MENU ITEMS ----------
   static final List<MenuItemData> menuItems = [
     MenuItemData(
       id: '1',
       name: 'Chicken Biryani',
       nameAr: 'برياني دجاج',
       description: 'Aromatic basmati rice with tender chicken.',
-      longDescription:
-          'Slow-cooked Hyderabadi-style biryani with saffron rice, marinated chicken, fried onions, and house spices.',
+      longDescription: 'Slow-cooked Hyderabadi-style biryani with saffron rice, marinated chicken, fried onions, and house spices.',
       category: 'Rice',
       price: 28,
       compareAtPrice: 32,
@@ -661,14 +694,19 @@ static final List<SubcategoryData> menuSubcategories = [
       status: 'Live',
       bestSeller: true,
       color: Color(0xFFC9782A),
+      hasOffer: true,
+      offerDiscount: 20,
+      offerType: 'percentage',
+      offerValidFrom: DateTime(2026, 6, 1),
+      offerValidTo: DateTime(2026, 8, 31),
+      offerActive: true,
     ),
     MenuItemData(
       id: '2',
       name: 'Malai Boti Roll',
       nameAr: 'ملائي بوتي رول',
       description: 'Creamy grilled chicken wrapped in paratha.',
-      longDescription:
-          'Soft malai boti pieces wrapped in a flaky paratha with mint chutney and onions.',
+      longDescription: 'Soft malai boti pieces wrapped in a flaky paratha with mint chutney and onions.',
       category: 'BBQ',
       price: 22,
       availableAt: 'Riyadh, Dammam',
@@ -684,8 +722,7 @@ static final List<SubcategoryData> menuSubcategories = [
       name: 'Beef Pulao',
       nameAr: 'بلاو لحم',
       description: 'Rich beef stock rice with slow-cooked meat.',
-      longDescription:
-          'Traditional yakhni pulao with tender beef, whole spices, and steamed basmati.',
+      longDescription: 'Traditional yakhni pulao with tender beef, whole spices, and steamed basmati.',
       category: 'Rice',
       price: 32,
       availableAt: 'All Branches',
@@ -700,8 +737,7 @@ static final List<SubcategoryData> menuSubcategories = [
       name: 'Rahu Fish',
       nameAr: 'سمك راهو',
       description: 'Crispy fried river fish with masala.',
-      longDescription:
-          'Fresh rahu fried golden and finished with Meerath masala, lemon, and herbs.',
+      longDescription: 'Fresh rahu fried golden and finished with Meerath masala, lemon, and herbs.',
       category: 'Seafood',
       price: 38,
       availableAt: 'Riyadh',
@@ -717,8 +753,7 @@ static final List<SubcategoryData> menuSubcategories = [
       name: 'BBQ Mixed Grill',
       nameAr: 'مشاوي مشكلة',
       description: 'Seekh, boti, and chicken tikka platter.',
-      longDescription:
-          'A sharing platter of seekh kebab, chicken tikka, and malai boti with naan.',
+      longDescription: 'A sharing platter of seekh kebab, chicken tikka, and malai boti with naan.',
       category: 'BBQ',
       price: 72,
       availableAt: 'All Branches',
@@ -728,14 +763,19 @@ static final List<SubcategoryData> menuSubcategories = [
       status: 'Live',
       bestSeller: true,
       color: Color(0xFFA33A2A),
+      hasOffer: true,
+      offerDiscount: 10,
+      offerType: 'fixed',
+      offerValidFrom: DateTime(2026, 9, 1),
+      offerValidTo: DateTime(2026, 9, 30),
+      offerActive: true,
     ),
     MenuItemData(
       id: '6',
       name: 'Halwa Puri',
       nameAr: 'حلوة پوري',
       description: 'Classic breakfast with chana and puri.',
-      longDescription:
-          'Soft puris served with sweet sooji halwa and spiced chickpeas.',
+      longDescription: 'Soft puris served with sweet sooji halwa and spiced chickpeas.',
       category: 'Breakfast',
       price: 18,
       availableAt: 'Riyadh, Jeddah',
@@ -751,8 +791,7 @@ static final List<SubcategoryData> menuSubcategories = [
       name: 'Kashmiri Chai',
       nameAr: 'شاي كشميري',
       description: 'Pink tea with pistachios and cream.',
-      longDescription:
-          'Noon chai finished with crushed pistachios, almonds, and a hint of cardamom.',
+      longDescription: 'Noon chai finished with crushed pistachios, almonds, and a hint of cardamom.',
       category: 'Drinks',
       price: 12,
       availableAt: 'All Branches',
@@ -766,10 +805,14 @@ static final List<SubcategoryData> menuSubcategories = [
     ),
   ];
 
+  // ---------- ADDONS ----------
   static const addons = [
     AddonData(name: 'Extra Chicken', type: 'Add-on', price: 'SAR 8.00', required: false),
     AddonData(name: 'Boiled Egg', type: 'Add-on', price: 'SAR 3.00', required: false),
     AddonData(name: 'Raita', type: 'Option', price: 'SAR 4.00', required: true),
     AddonData(name: 'Extra Spice', type: 'Option', price: 'SAR 0.00', required: false),
   ];
+
+  // ---------- OFFERS (READ-ONLY DISPLAY) ----------
+  static List<MenuItemData> get mockOffers => menuItems.where((item) => item.hasOffer).toList();
 }

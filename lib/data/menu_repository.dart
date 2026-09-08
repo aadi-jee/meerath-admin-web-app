@@ -2,6 +2,7 @@ import 'dart:math';
 import 'dart:typed_data';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'mock_data.dart';
+import 'offer_rules.dart';
 
 class MenuRepository {
   static const restaurantId = '11111111-1111-1111-1111-111111111111';
@@ -23,7 +24,7 @@ class MenuRepository {
       if (error.code == '23503') return 'This record is still used by another item.';
       if (error.code == 'P0001') return error.message;
       if (error.code == 'PGRST202' || error.code == '42703' || error.code == '42P01') {
-        return 'Menu setup is incomplete. Run 07_menu_batch.sql first.';
+        return 'Menu setup needs an update. Please contact your administrator.';
       }
     }
     if (error is FormatException) return error.message;
@@ -99,6 +100,23 @@ class MenuRepository {
         .map((b)=>b['id'] as String).toList() : branches, notes:notes);
   }
 
+  Future<void> setOfferEnabled(String id, bool enabled) async {
+    await _client.rpc('set_admin_item_offer', params: {
+      'target_restaurant_id': restaurantId, 'target_item_id': id,
+      'enabled': enabled, 'remove_offer': false,
+    });
+  }
+
+  Future<void> removeOffer(String id) async {
+    await _client.rpc('set_admin_item_offer', params: {
+      'target_restaurant_id': restaurantId, 'target_item_id': id,
+      'enabled': false, 'remove_offer': true,
+    });
+  }
+
+  Future<List<MenuItemData>> loadOffers() async =>
+      (await loadDisplayItems()).where((item) => item.hasOffer).toList();
+
   static List<Map<String,dynamic>> defaultSchedules() => List.generate(7,(i)=>{
     'day_of_week':i+1,'is_available':true,'start_time':null,'end_time':null,
   });
@@ -165,7 +183,12 @@ class MenuRepository {
         prepTime:(a['prep_time'] as num?)?.toInt()??25,calories:(a['calories'] as num?)?.toInt()??0,
         servingSize:a['serving_size'] as String? ?? '',spiceLevel:(a['spice_level'] as num?)?.toInt()??0,
         bestSeller:r['is_best_seller']==true,newItem:r['is_new']==true,
-        imageUrl:r['image_url'] as String?,attributes:a);
+        imageUrl:r['image_url'] as String?,attributes:a,
+        hasOffer:a['has_offer']==true,offerActive:a['offer_active']==true,
+        offerDiscount:OfferRules.number(a['offer_discount']),
+        offerType:a['offer_type'] is String ? a['offer_type'] as String : null,
+        offerValidFrom:OfferRules.parseDate(a['offer_valid_from']),
+        offerValidTo:OfferRules.parseDate(a['offer_valid_to']));
     }).toList();
   }
 }

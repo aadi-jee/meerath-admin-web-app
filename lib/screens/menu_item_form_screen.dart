@@ -1,8 +1,10 @@
+import 'dart:convert';
 import 'dart:typed_data';
 
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import '../data/menu_repository.dart';
+import '../data/offer_rules.dart';
 import '../data/mock_data.dart';
 import '../theme/app_colors.dart';
 import '../widgets/ui_bits.dart';
@@ -12,17 +14,23 @@ class MenuItemFormScreen extends StatefulWidget {
     super.key,
     this.item,
     required this.onBack,
+    this.initialTab = 0,
+    this.onSaved,
+    this.onSavingChanged,
   });
 
   final MenuItemData? item;
   final VoidCallback onBack;
+  final int initialTab;
+  final VoidCallback? onSaved;
+  final ValueChanged<bool>? onSavingChanged;
 
   @override
   State<MenuItemFormScreen> createState() =>
-      _MenuItemFormScreenState();
+      MenuItemFormScreenState();
 }
 
-class _MenuItemFormScreenState
+class MenuItemFormScreenState
     extends State<MenuItemFormScreen> {
   late final TextEditingController _nameEn;
   late final TextEditingController _nameAr;
@@ -34,6 +42,10 @@ class _MenuItemFormScreenState
   late final TextEditingController _calories;
   late final TextEditingController _servingSize;
   late final TextEditingController _internalNotes;
+  final _offerDiscountInput = TextEditingController();
+  final _offerMaxQtyInput = TextEditingController();
+  String? _cleanSnapshot;
+  bool _confirmingLeave = false;
 Uint8List? _selectedImageBytes;
 String? _selectedImageName;
 bool _imageRemoved = false;
@@ -49,6 +61,7 @@ List<CategoryData> _categories = [];
 List<SubcategoryData> _subcategories = [];
 List<Map<String,dynamic>> _branches = [];
   int _tabIndex = 0;
+  String _savedStatus = 'draft';
   int _spiceLevel = 2;
 
 bool _isSaving = false;
@@ -72,18 +85,28 @@ final Set<int> _selectedDays = {1, 2, 3, 4, 5, 6, 7};
 
   late List<_AddonOption> _addons;
 
+  // ⬇️ OFFER FIELDS (Naye) ⬇️
+  bool _hasOffer = false;
+  double? _offerDiscount;
+  String? _offerType; // 'percentage' or 'fixed'
+  DateTime? _offerValidFrom;
+  DateTime? _offerValidTo;
+  bool _offerActive = false;
+
   final _tabs = const [
     'Basic Info',
     'Pricing',
     'Options & Add-ons',
     'Availability',
     'Visibility & Media',
+    'Offers', // ⬅️ NAYA TAB
   ];
 
   @override
   void initState() {
     super.initState();
 
+    _tabIndex = widget.initialTab.clamp(0, 5).toInt();
     final item = widget.item;
     _itemId=item?.id??MenuRepository.newId();
     _imageUrl=item?.imageUrl;
@@ -133,7 +156,72 @@ _selectedImageName = item?.imageName;
     _bestSeller=item?.bestSeller??false;
     _newItem=item?.newItem??false;
     _addons=[];
+
+    // ⬇️ OFFER FIELDS INIT ⬇️
+    _hasOffer = item?.hasOffer ?? false;
+    _offerDiscount = item?.offerDiscount;
+    _offerDiscountInput.text = _offerDiscount?.toString() ?? '';
+    _offerType = item?.offerType ?? 'percentage';
+    _offerValidFrom = item?.offerValidFrom;
+    _offerValidTo = item?.offerValidTo;
+    _offerActive = item?.offerActive ?? false;
+
     _loadForm();
+  }
+
+  // Compare actual editable values at navigation time. Tab changes and focus
+  // changes are not edits; controllers also cover fields without onChanged.
+  String _editSnapshot() => jsonEncode({
+    'text': [_nameEn.text, _nameAr.text, _shortEn.text, _shortAr.text,
+      _price.text, _comparePrice.text, _prepTime.text, _calories.text,
+      _servingSize.text, _internalNotes.text, _offerDiscountInput.text,
+      _offerMaxQtyInput.text],
+    'category': [_category, _subcategory],
+    'visibility': [_available, _showInCustomerApp, _featured, _bestSeller,
+      _newItem, _vatIncluded, _spiceLevel],
+    'branches': _selectedBranches.toList()..sort(),
+    'days': _selectedDays.toList()..sort(),
+    'schedule': [_scheduleAllDay, _startTime.hour, _startTime.minute,
+      _endTime.hour, _endTime.minute, _scheduleChanged],
+    'offer': [_hasOffer, _offerType, _offerActive,
+      _offerValidFrom?.toIso8601String(), _offerValidTo?.toIso8601String()],
+    'image': [_imageUrl, _selectedImageName, _imageRemoved,
+      _selectedImageBytes == null ? null : base64Encode(_selectedImageBytes!)],
+    'addons': [for (final option in _addons)
+      [option.name, option.type, option.price, option.enabled, option.required]],
+  });
+
+  bool get isSaving => _isSaving;
+
+  Future<bool> confirmLeave() async {
+    if (_isSaving || _confirmingLeave) return false;
+    if (_cleanSnapshot == null || _cleanSnapshot == _editSnapshot()) return true;
+    _confirmingLeave = true;
+    try {
+      final discard = await showDialog<bool>(
+        context: context,
+        barrierDismissible: false,
+        builder: (dialogContext) => AlertDialog(
+          title: const Text('Discard unsaved changes?'),
+          content: const Text('Your changes have not been saved. Stay here to continue editing, or discard them to leave.'),
+          actions: [
+            TextButton(onPressed: () => Navigator.pop(dialogContext, false),
+              child: const Text('Keep editing')),
+            TextButton(onPressed: () => Navigator.pop(dialogContext, true),
+              child: const Text('Discard changes')),
+          ],
+        ),
+      );
+      return mounted && discard == true && !_isSaving;
+    } finally {
+      _confirmingLeave = false;
+    }
+  }
+
+  void _setSaving(bool value) {
+    if (!mounted || _isSaving == value) return;
+    setState(() => _isSaving = value);
+    widget.onSavingChanged?.call(value);
   }
 
   Future<void> _loadForm() async {
@@ -172,6 +260,7 @@ _selectedImageName = item?.imageName;
           _price.text=(data['base_price'] as num).toString();
           _category=data['category_id'] as String;
           _subcategory=data['subcategory_id'] as String? ?? '';
+          _savedStatus=data['status'] as String? ?? 'draft';
           _available=data['is_available']==true;
           _featured=data['is_featured']==true;
           _bestSeller=data['is_best_seller']==true;
@@ -179,6 +268,16 @@ _selectedImageName = item?.imageName;
           _showInCustomerApp=data['show_in_customer_app']!=false;
           _imageUrl=data['image_url'] as String?;
           _attributes=Map<String,dynamic>.from(data['attributes'] as Map? ?? {});
+            // ⬇️ OFFER FIELDS READ FROM ATTRIBUTES ⬇️
+          _hasOffer = _attributes['has_offer'] == true;
+          _offerDiscount = OfferRules.number(_attributes['offer_discount']);
+          _offerDiscountInput.text = _offerDiscount?.toString() ?? '';
+          final offerType = _attributes['offer_type'];
+          _offerType = offerType == 'fixed' ? 'fixed' : 'percentage';
+          _offerValidFrom = OfferRules.parseDate(_attributes['offer_valid_from']);
+          _offerValidTo = OfferRules.parseDate(_attributes['offer_valid_to']);
+          _offerActive = _attributes['offer_active'] == true;
+          _offerMaxQtyInput.text = _attributes['offer_max_qty']?.toString() ?? '';
           _comparePrice.text=_attributes['compare_at_price']?.toString()??'';
           _prepTime.text=(_attributes['prep_time']??25).toString();
           _calories.text=(_attributes['calories']??0).toString();
@@ -205,6 +304,7 @@ _selectedImageName = item?.imageName;
           _subcategory='';
         }
         _isLoading=false;
+        _cleanSnapshot = _editSnapshot();
       });
     }catch(e){if(mounted)setState((){_isLoading=false;_loadError=MenuRepository.errorMessage(e);});}
   }
@@ -225,6 +325,8 @@ _selectedImageName = item?.imageName;
     _calories.dispose();
     _servingSize.dispose();
     _internalNotes.dispose();
+    _offerDiscountInput.dispose();
+    _offerMaxQtyInput.dispose();
 
     super.dispose();
   }
@@ -517,8 +619,18 @@ void _removeItemImage() {
       if(amount==null||!amount.isFinite||amount<0){invalid='An option has an invalid price.';break;}
       options.add({'name':o.name,'type':o.type,'price':amount,'enabled':o.enabled,'required':o.required});
     }
+    final offerMaxQtyText = _offerMaxQtyInput.text.trim();
+    final offerMaxQty = int.tryParse(offerMaxQtyText);
+    if (_hasOffer) {
+      invalid = OfferRules.validate(price: price ?? -1, discount: _offerDiscount,
+        type: _offerType, from: _offerValidFrom, to: _offerValidTo) ?? invalid;
+      if (offerMaxQtyText.isNotEmpty &&
+          (offerMaxQty == null || offerMaxQty < 1 || offerMaxQty > 999)) {
+        invalid = 'Offer quantity limit must be a whole number from 1 to 999, or blank for unlimited.';
+      }
+    }
     if(invalid!=null){ScaffoldMessenger.of(context).showSnackBar(SnackBar(content:Text(invalid)));return;}
-    setState(()=>_isSaving=true);
+    _setSaving(true);
     try {
       final repo=MenuRepository();
       if(_imageDirty&&_selectedImageBytes!=null){
@@ -535,19 +647,32 @@ void _removeItemImage() {
         'attributes':{..._attributes,'compare_at_price':compare,'prep_time':prep,'calories':calories,
           'serving_size':_servingSize.text.trim(),'spice_level':_spiceLevel,'vat_included':_vatIncluded,
           'options':options,'all_branches':_selectedBranches.contains('All Branches'),
-          'image_name':_imageRemoved?null:_selectedImageName},
+          'image_name':_imageRemoved?null:_selectedImageName,
+          // ⬇️ OFFER FIELDS SAVE ⬇️
+          'has_offer': _hasOffer,
+          'offer_discount': _offerDiscount,
+          'offer_type': _offerType,
+          'offer_valid_from': _offerValidFrom == null ? null : OfferRules.storageDate(_offerValidFrom!),
+          'offer_valid_to': _offerValidTo == null ? null : OfferRules.storageDate(_offerValidTo!),
+          'offer_active': _offerActive,
+          'offer_max_qty': _hasOffer ? offerMaxQty : null,
+        },
       }, schedules:!_scheduleChanged&&_originalSchedules.length==7?_originalSchedules:List.generate(7,(i)=>{'day_of_week':i+1,'is_available':_selectedDays.contains(i+1),
         'start_time':_scheduleAllDay?null:_timeText(_startTime),'end_time':_scheduleAllDay?null:_timeText(_endTime)}),
         branchIds:branchIds,notes:_internalNotes.text.trim());
+      
+      
       if(!mounted)return;
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(content:Text(draft?'Draft saved.':'Menu item saved.')));
-      widget.onBack();
+      _cleanSnapshot = _editSnapshot();
+      _setSaving(false);
+      (widget.onSaved ?? widget.onBack)();
     }catch(e){if(mounted)ScaffoldMessenger.of(context).showSnackBar(SnackBar(content:Text(MenuRepository.errorMessage(e))));}
-    finally{if(mounted)setState(()=>_isSaving=false);}
+    finally{if(mounted && _isSaving) _setSaving(false);}
   }
 
 void _saveDraft() {
-  _saveItem(draft: true);
+  _saveItem(draft: widget.item == null || _savedStatus != 'published');
 }
 
 void _publish() {
@@ -700,6 +825,9 @@ if (_loadError != null) {
 
       case 4:
         return _buildVisibility();
+
+      case 5:
+        return _buildOfferTab(); // ⬅️ NAYA OFFER TAB
 
       default:
         return _buildBasicInfo();
@@ -1387,12 +1515,6 @@ initialValue: _subcategory,
                             );
                           }
 
-                          if (_selectedBranches
-                              .isEmpty) {
-                            _selectedBranches.add(
-                              'All Branches',
-                            );
-                          }
                         });
                       },
                       selectedColor:
@@ -1666,6 +1788,182 @@ const Divider(
       ],
     );
   }
+
+  // ⬇️ OFFER TAB UI ⬇️
+  Widget _buildOfferTab() {
+    return Column(
+      children: [
+        SectionCard(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const _SectionTitle(
+                title: 'Offer Settings',
+                subtitle: 'Set a discount or promotion for this menu item.',
+              ),
+              const SizedBox(height: 18),
+
+              // Enable Offer Toggle
+              _ToggleRow(
+                title: 'Enable Offer',
+                subtitle: _hasOffer
+                    ? 'This item will appear in the Offers section.'
+                    : 'Turn on to add this item to the Offers section.',
+                value: _hasOffer,
+                onChanged: (value) {
+                  setState(() {
+                    _hasOffer = value;
+                    if (!value) {
+                      _offerActive = false;
+                    }
+                  });
+                },
+              ),
+
+              if (_hasOffer) ...[
+                const Divider(color: AppColors.border, height: 26),
+
+                // Discount Type
+                const Text(
+                  'Discount Type',
+                  style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
+                ),
+                const SizedBox(height: 8),
+                DropdownButtonFormField<String>(
+                  initialValue: _offerType,
+                  decoration: const InputDecoration(
+                    border: OutlineInputBorder(),
+                  ),
+                  items: const [
+                    DropdownMenuItem(value: 'percentage', child: Text('Percentage (%)')),
+                    DropdownMenuItem(value: 'fixed', child: Text('Fixed Amount (SAR)')),
+                  ],
+                  onChanged: (v) => setState(() => _offerType = v!),
+                ),
+                const SizedBox(height: 16),
+
+                // Discount Value
+                const Text(
+                  'Discount Value',
+                  style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
+                ),
+                const SizedBox(height: 8),
+                TextFormField(
+                  controller: _offerDiscountInput,
+                  decoration: const InputDecoration(
+                    border: OutlineInputBorder(),
+                    hintText: 'e.g., 20',
+                  ),
+                  keyboardType: TextInputType.number,
+                  onChanged: (v) {
+                    _offerDiscount = double.tryParse(v);
+                  },
+                ),
+                const SizedBox(height: 16),
+
+                const Text(
+                  'Maximum quantity per cart while offer is active',
+                  style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
+                ),
+                const SizedBox(height: 8),
+                TextFormField(
+                  controller: _offerMaxQtyInput,
+                  keyboardType: TextInputType.number,
+                  decoration: const InputDecoration(
+                    border: OutlineInputBorder(),
+                    hintText: 'Blank = unlimited; e.g. 1 or 2',
+                    helperText: '1–999. Counts all spice choices together. Extra units are blocked, not charged full price.',
+                    helperMaxLines: 3,
+                  ),
+                ),
+                const SizedBox(height: 16),
+
+                // Valid From
+                const Text(
+                  'Valid From',
+                  style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
+                ),
+                const SizedBox(height: 8),
+                InkWell(
+                  onTap: () => _pickOfferDate(true),
+                  child: InputDecorator(
+                    decoration: const InputDecoration(
+                      border: OutlineInputBorder(),
+                    ),
+                    child: Text(
+                      _offerValidFrom != null
+                          ? _formatDate(_offerValidFrom!)
+                          : 'Select date',
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 16),
+
+                // Valid To
+                const Text(
+                  'Valid To',
+                  style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
+                ),
+                const SizedBox(height: 8),
+                InkWell(
+                  onTap: () => _pickOfferDate(false),
+                  child: InputDecorator(
+                    decoration: const InputDecoration(
+                      border: OutlineInputBorder(),
+                    ),
+                    child: Text(
+                      _offerValidTo != null
+                          ? _formatDate(_offerValidTo!)
+                          : 'Select date',
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 16),
+
+                // Active Toggle
+                _ToggleRow(
+                  title: 'Offer Enabled',
+                  subtitle: _offerActive
+                      ? 'Enabled: the offer runs on its selected Saudi dates.'
+                      : 'Offer is inactive and will not be shown.',
+                  value: _offerActive,
+                  onChanged: (value) => setState(() => _offerActive = value),
+                ),
+              ],
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+
+  // ⬇️ OFFER HELPER METHODS ⬇️
+  Future<void> _pickOfferDate(bool isFrom) async {
+    final stored = isFrom ? _offerValidFrom : _offerValidTo;
+    final today = OfferRules.saudiDate();
+    final initial = stored ?? today;
+    final earliest = DateTime(today.year - 2, 1, 1);
+    final latest = DateTime(today.year + 5, 12, 31);
+    final picked = await showDatePicker(
+      context: context,
+      initialDate: DateTime(initial.year, initial.month, initial.day),
+      firstDate: initial.isBefore(earliest) ? DateTime(initial.year, initial.month, initial.day) : earliest,
+      lastDate: initial.isAfter(latest) ? DateTime(initial.year, initial.month, initial.day) : latest,
+    );
+    if (!mounted) return;
+    if (picked != null) {
+      setState(() {
+        if (isFrom) {
+          _offerValidFrom = picked;
+        } else {
+          _offerValidTo = picked;
+        }
+      });
+    }
+  }
+
+  String _formatDate(DateTime date) =>
+      OfferRules.formatDate(date);
 }
 
 class _TopBar extends StatelessWidget {
@@ -1682,7 +1980,7 @@ class _TopBar extends StatelessWidget {
     return Row(
       children: [
         IconButton(
-          tooltip: 'Back to Menu',
+          tooltip: 'Back to list',
           onPressed: onBack,
           icon: const Icon(
             Icons.arrow_back_rounded,

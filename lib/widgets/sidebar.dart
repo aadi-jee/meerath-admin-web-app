@@ -155,7 +155,7 @@ class AppSidebar extends StatelessWidget {
                           ),
                         ),
                         Text(
-                          'Switch branch',
+                          'Riyadh Branch',
                           style: TextStyle(
                             fontSize: 11,
                             color: AppColors.textMuted,
@@ -164,7 +164,7 @@ class AppSidebar extends StatelessWidget {
                       ],
                     ),
                   ),
-                  Icon(Icons.expand_more, color: AppColors.textMuted, size: 18),
+                  Icon(Icons.location_on_outlined, color: AppColors.accent, size: 18),
                 ],
               ),
             ),

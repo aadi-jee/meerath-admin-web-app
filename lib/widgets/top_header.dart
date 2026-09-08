@@ -1,18 +1,15 @@
 import 'package:flutter/material.dart';
 
-import '../data/mock_data.dart';
 import '../theme/app_colors.dart';
 
 class TopHeader extends StatelessWidget {
   const TopHeader({
     super.key,
-    required this.branch,
-    required this.onBranchChanged,
+    this.branchName = 'Meerath Riyadh',
     this.onMenuTap,
   });
 
-  final String branch;
-  final ValueChanged<String> onBranchChanged;
+  final String branchName;
   final VoidCallback? onMenuTap;
 
   @override
@@ -39,33 +36,17 @@ class TopHeader extends StatelessWidget {
               borderRadius: BorderRadius.circular(12),
               border: Border.all(color: AppColors.border),
             ),
-            child: DropdownButtonHideUnderline(
-              child: DropdownButton<String>(
-                value: branch,
-                dropdownColor: AppColors.surfaceAlt,
-                icon: const Icon(Icons.expand_more, color: AppColors.textMuted),
-                items: [
-                  for (final item in MockData.branches)
-                    DropdownMenuItem(value: item, child: Text(item)),
-                ],
-                onChanged: (value) {
-                  if (value != null) onBranchChanged(value);
-                },
-                selectedItemBuilder: (context) => [
-                  for (final item in MockData.branches)
-                    Row(
-                      children: [
-                        const Icon(
-                          Icons.location_on_outlined,
-                          size: 18,
-                          color: AppColors.accent,
-                        ),
-                        const SizedBox(width: 8),
-                        Text(item, style: const TextStyle(fontSize: 13)),
-                      ],
-                    ),
-                ],
-              ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const Icon(
+                  Icons.location_on_outlined,
+                  size: 18,
+                  color: AppColors.accent,
+                ),
+                const SizedBox(width: 8),
+                Text(branchName, style: const TextStyle(fontSize: 13)),
+              ],
             ),
           ),
           const SizedBox(width: 16),
