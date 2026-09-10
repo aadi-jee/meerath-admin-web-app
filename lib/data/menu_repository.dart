@@ -105,6 +105,11 @@ class MenuRepository {
       onConflict:'restaurant_id,slot').select('slot').single();
   }
 
+  Future<void> deleteBanner(int slot) async {
+    await _client.from('home_banners').delete()
+      .eq('restaurant_id',restaurantId).eq('slot',slot).select('slot').single();
+  }
+
   Future<void> duplicateMenuItem(String id) async {
     final row = await loadItem(id);
     final schedules = await loadSchedules(id);
@@ -139,10 +144,12 @@ class MenuRepository {
   });
 
   Future<void> saveGroup({String? id, String? parentId,
-    required String name, required String nameAr, required int sortOrder}) async {
+    required String name, required String nameAr, required int sortOrder,
+    String? imageUrl, bool updateImage = false}) async {
     final table=parentId==null?'categories':'subcategories';
     final values=<String,dynamic>{'name_en':name,'name_ar':nameAr,'sort_order':sortOrder,
-      'updated_at':DateTime.now().toUtc().toIso8601String()};
+      'updated_at':DateTime.now().toUtc().toIso8601String(),
+      if(parentId==null && updateImage) 'image_url':imageUrl};
     if(id==null) {
       await _client.from(table).insert({...values,
         if(parentId==null) 'restaurant_id':restaurantId else 'category_id':parentId,
@@ -168,6 +175,13 @@ class MenuRepository {
   Future<void> reorderGroups(List<String> ids,{String? parentId}) async {
     await _client.rpc('reorder_admin_menu',params:{'target_restaurant_id':restaurantId,
       'category_id_filter':parentId,'ordered_ids':ids});
+  }
+
+  Future<void> reorderMenuItems(List<String> ids,{
+    required String categoryId, String? subcategoryId}) async {
+    await _client.rpc('reorder_admin_menu_items',params:{
+      'target_restaurant_id':restaurantId,'category_id_filter':categoryId,
+      'subcategory_id_filter':subcategoryId,'ordered_ids':ids});
   }
 
   Future<String> uploadImage(Uint8List bytes,String name) async {
@@ -202,6 +216,7 @@ class MenuRepository {
         bestSeller:r['is_best_seller']==true,newItem:r['is_new']==true,
         imageUrl:r['image_url'] as String?,attributes:a,
         hasOffer:a['has_offer']==true,offerActive:a['offer_active']==true,
+        sortOrder:(r['sort_order'] as num?)?.toInt()??0,
         offerDiscount:OfferRules.number(a['offer_discount']),
         offerType:a['offer_type'] is String ? a['offer_type'] as String : null,
         offerValidFrom:OfferRules.parseDate(a['offer_valid_from']),

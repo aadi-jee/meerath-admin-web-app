@@ -1,6 +1,8 @@
 import 'dart:async';
+import 'dart:typed_data';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:flutter/material.dart';
+import 'package:file_picker/file_picker.dart';
 
 import '../data/menu_repository.dart';
 import '../data/mock_data.dart';
@@ -80,7 +82,8 @@ final Set<String> _expandedCategoryIds = {};
       setState((){
         MockData.menuCategories..clear()..addAll(categoryRows.map((r)=>CategoryData(
           id:r['id'] as String,name:r['name_en'] as String,nameAr:r['name_ar'] as String? ?? '',
-          displayOrder:(r['sort_order'] as num).toInt(),active:r['is_active']==true)));
+          displayOrder:(r['sort_order'] as num).toInt(),active:r['is_active']==true,
+          imageUrl:r['image_url'] as String?)));
         MockData.menuSubcategories..clear()..addAll(subcategoryRows.map((r)=>SubcategoryData(
           id:r['id'] as String,categoryId:r['category_id'] as String,name:r['name_en'] as String,
           nameAr:r['name_ar'] as String? ?? '',displayOrder:(r['sort_order'] as num).toInt(),active:r['is_active']==true)));
@@ -256,6 +259,9 @@ final Set<String> _expandedCategoryIds = {};
     final group=parentId==null?'Category':'Subcategory';
     bool saving=false;
     String? error;
+    String? imageUrl=category?.imageUrl;
+    Uint8List? imageBytes;
+    String? imageName;
     final saved=await showDialog<bool>(context:context,barrierDismissible:false,builder:(dialogContext)=>
       StatefulBuilder(builder:(context,update)=>PopScope(
         canPop:!saving,
@@ -266,6 +272,29 @@ final Set<String> _expandedCategoryIds = {};
             const SizedBox(height:16),
             TextField(controller:arabic,enabled:!saving,textDirection:TextDirection.rtl,
               decoration:const InputDecoration(labelText:'Arabic Name')),
+            if(parentId==null)...[
+              const SizedBox(height:16),
+              if(imageBytes!=null)Image.memory(imageBytes!,height:140,width:double.infinity,fit:BoxFit.cover)
+              else if((imageUrl??'').isNotEmpty)Image.network(imageUrl!,height:140,width:double.infinity,fit:BoxFit.cover,
+                errorBuilder:(_,error,stack)=>const SizedBox(height:80,child:Center(child:Text('Image preview unavailable'))))
+              else const SizedBox(height:80,child:Center(child:Icon(Icons.image_outlined,size:42))),
+              Wrap(spacing:8,children:[
+                TextButton.icon(onPressed:saving?null:() async {
+                  try {
+                    final file=await FilePicker.pickFile(type:FileType.image);
+                    if(file==null)return;
+                    final size=await file.length();
+                    if(size>5*1024*1024)throw const FormatException('Choose an image smaller than 5 MB.');
+                    final bytes=await file.readAsBytes();
+                    update((){imageBytes=bytes;imageName=file.name;error=null;});
+                  }catch(e){update(()=>error=MenuRepository.errorMessage(e));}
+                },icon:const Icon(Icons.upload),label:Text((imageUrl??'').isEmpty?'Choose category image':'Replace image')),
+                if(imageBytes!=null||(imageUrl??'').isNotEmpty)TextButton(onPressed:saving?null:()=>update((){
+                  imageBytes=null;imageName=null;imageUrl=null;
+                }),child:const Text('Remove image')),
+              ]),
+              const Text('Use a dedicated square food-category image (JPG, PNG or WebP, max 5 MB).',style:TextStyle(fontSize:12,color:Colors.grey)),
+            ],
             if(error!=null)Padding(padding:const EdgeInsets.only(top:12),child:Text(error!,style:const TextStyle(color:AppColors.danger))),
           ]))),
           actions:[
@@ -281,8 +310,13 @@ final Set<String> _expandedCategoryIds = {};
                 final orders=parentId==null?MockData.menuCategories.map((c)=>c.displayOrder)
                   :MockData.menuSubcategories.where((c)=>c.categoryId==parentId).map((c)=>c.displayOrder);
                 final next=orders.fold<int>(0,(a,b)=>a>b?a:b)+1;
+                if(parentId==null&&imageBytes!=null&&imageName!=null){
+                  imageUrl=await MenuRepository().uploadImage(imageBytes!,imageName!);
+                  imageBytes=null;imageName=null;
+                }
                 await MenuRepository().saveGroup(id:id,parentId:parentId,name:name.text.trim(),nameAr:arabic.text.trim(),
-                  sortOrder:category?.displayOrder??subcategory?.displayOrder??next);
+                  sortOrder:category?.displayOrder??subcategory?.displayOrder??next,
+                  imageUrl:imageUrl,updateImage:parentId==null);
                 if(dialogContext.mounted){update(()=>saving=false);Navigator.pop(dialogContext,true);}
               }catch(e){if(dialogContext.mounted)update((){saving=false;error=MenuRepository.errorMessage(e);});}
             },child:Text(saving?'Saving...':'Save')),
@@ -321,6 +355,77 @@ final Set<String> _expandedCategoryIds = {};
     await _mutate(()=>MenuRepository().reorderGroups(ordered.map((c)=>c.id).toList(),parentId:categoryId));
   }
 
+  List<MenuItemData> _itemsInOrderScope(String categoryId,String? subcategoryId) =>
+    _items.where((item)=>item.categoryId==categoryId&&item.subcategoryId==subcategoryId).toList()
+      ..sort((a,b){
+        final byOrder=a.sortOrder.compareTo(b.sortOrder);
+        return byOrder!=0?byOrder:a.id.compareTo(b.id);
+      });
+
+  Future<void> _showItemOrder(CategoryData category,{SubcategoryData? subcategory}) async {
+    if(_busy)return;
+    var ordered=_itemsInOrderScope(category.id,subcategory?.id);
+    if(ordered.length<2){
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content:Text(ordered.isEmpty
+        ?'No items are assigned to this ${subcategory==null?'category section':'subcategory'}.'
+        :'At least two items are needed to change their order.')));
+      return;
+    }
+    bool saving=false;
+    String? error;
+    final saved=await showDialog<bool>(context:context,barrierDismissible:false,builder:(dialogContext)=>
+      StatefulBuilder(builder:(context,update)=>PopScope(canPop:!saving,child:AlertDialog(
+        title:Text('Order items · ${subcategory?.name??'Directly in ${category.name}'}'),
+        content:SizedBox(width:560,height:520,child:Column(crossAxisAlignment:CrossAxisAlignment.stretch,children:[
+          const Text('Drag the handle or use the arrows. Customers will see this top-to-bottom order.'),
+          const SizedBox(height:12),
+          Expanded(child:ReorderableListView.builder(
+            buildDefaultDragHandles:false,itemCount:ordered.length,
+            onReorderItem:(oldIndex,newIndex){
+              if(saving)return;
+              update((){final item=ordered.removeAt(oldIndex);ordered.insert(newIndex,item);error=null;});
+            },
+            itemBuilder:(context,index){
+              final item=ordered[index];
+              return Card(key:ValueKey(item.id),margin:const EdgeInsets.only(bottom:8),child:ListTile(
+                leading:ReorderableDragStartListener(index:index,child:const Padding(
+                  padding:EdgeInsets.all(8),child:Icon(Icons.drag_indicator_rounded))),
+                title:Text(item.name,maxLines:1,overflow:TextOverflow.ellipsis),
+                subtitle:Text(item.nameAr,maxLines:1,overflow:TextOverflow.ellipsis,textDirection:TextDirection.rtl),
+                trailing:Row(mainAxisSize:MainAxisSize.min,children:[
+                  IconButton(tooltip:'Move up',onPressed:saving||index==0?null:()=>update((){
+                    final moved=ordered.removeAt(index);ordered.insert(index-1,moved);error=null;
+                  }),icon:const Icon(Icons.keyboard_arrow_up_rounded)),
+                  IconButton(tooltip:'Move down',onPressed:saving||index==ordered.length-1?null:()=>update((){
+                    final moved=ordered.removeAt(index);ordered.insert(index+1,moved);error=null;
+                  }),icon:const Icon(Icons.keyboard_arrow_down_rounded)),
+                ]),
+              ));
+            },
+          )),
+          if(error!=null)Padding(padding:const EdgeInsets.only(top:8),child:Text(error!,style:const TextStyle(color:AppColors.danger))),
+        ])),
+        actions:[
+          TextButton(onPressed:saving?null:()=>Navigator.pop(dialogContext,false),child:const Text('Cancel')),
+          ElevatedButton.icon(onPressed:saving?null:() async {
+            update((){saving=true;error=null;});
+            try{
+              await MenuRepository().reorderMenuItems(ordered.map((item)=>item.id).toList(),
+                categoryId:category.id,subcategoryId:subcategory?.id);
+              if(dialogContext.mounted)Navigator.pop(dialogContext,true);
+            }catch(e){
+              if(dialogContext.mounted)update((){saving=false;error=MenuRepository.errorMessage(e);});
+            }
+          },icon:saving?const SizedBox(width:16,height:16,child:CircularProgressIndicator(strokeWidth:2)):const Icon(Icons.save_outlined),
+            label:Text(saving?'Saving...':'Save order')),
+        ],
+      ))));
+    if(saved==true&&mounted){
+      await _checkSupabaseMenu();
+      if(mounted)ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content:Text('Item order saved.')));
+    }
+  }
+
 Widget _buildCategoriesView() {
   final categories = [...MockData.menuCategories]
     ..sort((a, b) => a.displayOrder.compareTo(b.displayOrder));
@@ -343,7 +448,7 @@ Widget _buildCategoriesView() {
                 ),
                 SizedBox(height: 4),
                 Text(
-                  'Organize how categories appear in the customer menu.',
+                  'Organize categories and use the order icon to arrange their items.',
                   style: TextStyle(
                     fontSize: 13,
                     color: Colors.grey,
@@ -370,6 +475,7 @@ Widget _buildCategoriesView() {
   onReorderItem: _reorderCategories,
   itemBuilder: (context, index) {
     final category = categories[index];
+    final directItemCount=_itemsInOrderScope(category.id,null).length;
     final isExpanded =
     _expandedCategoryIds.contains(category.id);
     final subcategories = MockData.menuSubcategories
@@ -431,6 +537,16 @@ Widget _buildCategoriesView() {
 
           const SizedBox(width: 12),
 
+          ClipRRect(
+            borderRadius: BorderRadius.circular(8),
+            child: (category.imageUrl ?? '').isNotEmpty
+              ? Image.network(category.imageUrl!, width:48, height:48, fit:BoxFit.cover,
+                  errorBuilder:(_,error,stack)=>const SizedBox(width:48,height:48,child:Icon(Icons.broken_image_outlined)))
+              : const SizedBox(width:48,height:48,child:Icon(Icons.image_outlined)),
+          ),
+
+          const SizedBox(width: 12),
+
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -472,6 +588,14 @@ Widget _buildCategoriesView() {
           ),
 
           IconButton(
+            tooltip: directItemCount>1
+              ? 'Order items directly in this category'
+              : '$directItemCount direct item · add at least 2 to reorder',
+            onPressed: directItemCount>1 ? ()=>_showItemOrder(category) : null,
+            icon:const Icon(Icons.low_priority_rounded),
+          ),
+
+          IconButton(
             tooltip: 'Edit category',
             onPressed: () =>
                 _showEditCategoryDialog(category),
@@ -505,6 +629,7 @@ Widget _buildCategoriesView() {
   },
   itemBuilder: (context, index) {
     final subcategory = subcategories[index];
+    final scopedItemCount=_itemsInOrderScope(category.id,subcategory.id).length;
 
     return Container(
       key: ValueKey(subcategory.id),
@@ -577,6 +702,16 @@ Widget _buildCategoriesView() {
             value: subcategory.active,
             onChanged: (value) => _mutate(()=>MenuRepository().setGroupActive(subcategory.id,value,parentId:subcategory.categoryId)),
 
+          ),
+
+          IconButton(
+            tooltip: scopedItemCount>1
+              ? 'Order items in this subcategory'
+              : '$scopedItemCount item · add at least 2 to reorder',
+            onPressed: scopedItemCount>1
+              ? ()=>_showItemOrder(category,subcategory:subcategory)
+              : null,
+            icon:const Icon(Icons.low_priority_rounded,size:19),
           ),
 
           IconButton(

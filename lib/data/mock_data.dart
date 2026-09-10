@@ -10,6 +10,7 @@ class CategoryData {
     required this.nameAr,
     required this.displayOrder,
     this.active = true,
+    this.imageUrl,
   });
 
   final String id;
@@ -17,12 +18,14 @@ class CategoryData {
   final String nameAr;
   final int displayOrder;
   final bool active;
+  final String? imageUrl;
 
   CategoryData copyWith({
     String? name,
     String? nameAr,
     int? displayOrder,
     bool? active,
+    String? imageUrl,
   }) {
     return CategoryData(
       id: id,
@@ -30,6 +33,7 @@ class CategoryData {
       nameAr: nameAr ?? this.nameAr,
       displayOrder: displayOrder ?? this.displayOrder,
       active: active ?? this.active,
+      imageUrl: imageUrl ?? this.imageUrl,
     );
   }
 }
@@ -157,6 +161,7 @@ class MenuItemData {
     this.offerValidFrom,
     this.offerValidTo,
     this.offerActive = false,
+    this.sortOrder = 0,
   });
 
   final String id;
@@ -194,6 +199,7 @@ class MenuItemData {
   final DateTime? offerValidFrom;
   final DateTime? offerValidTo;
   final bool offerActive;
+  final int sortOrder;
 
   MenuItemData copyWith({
     bool? available,
@@ -205,6 +211,7 @@ class MenuItemData {
     DateTime? offerValidFrom,
     DateTime? offerValidTo,
     bool? offerActive,
+    int? sortOrder,
   }) {
     return MenuItemData(
       id: id,
@@ -241,6 +248,7 @@ class MenuItemData {
       offerValidFrom: offerValidFrom ?? this.offerValidFrom,
       offerValidTo: offerValidTo ?? this.offerValidTo,
       offerActive: offerActive ?? this.offerActive,
+      sortOrder: sortOrder ?? this.sortOrder,
     );
   }
 }

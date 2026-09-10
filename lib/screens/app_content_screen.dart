@@ -120,6 +120,27 @@ final url = await _repo.uploadImage(bytes, file.name);
     } catch (e) { if (mounted) setState(() => _error = MenuRepository.errorMessage(e)); }
     finally { if (mounted) setState(() => _busy = false); }
   }
+  Future<void> _delete() async {
+    if (widget.banner == null || _busy) return;
+    final confirmed = await showDialog<bool>(context: context, builder: (ctx) => AlertDialog(
+      title: const Text('Delete this banner?'),
+      content: const Text('This banner position will become empty. The uploaded image file is kept for safety.'),
+      actions: [
+        TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancel')),
+        TextButton(onPressed: () => Navigator.pop(ctx, true), child: const Text('Delete')),
+      ],
+    ));
+    if (confirmed != true || !mounted) return;
+    setState(() { _busy = true; _error = null; });
+    try {
+      await _repo.deleteBanner(widget.slot);
+      if (mounted) Navigator.pop(context, true);
+    } catch (e) {
+      if (mounted) setState(() => _error = MenuRepository.errorMessage(e));
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
+  }
   Widget _text(String key, String label, int limit, {bool required = false}) => TextFormField(
     controller: _fields[key], maxLength: limit, decoration: InputDecoration(labelText: label),
     onChanged: (_) => setState(() => _dirty = true),
@@ -161,7 +182,11 @@ final url = await _repo.uploadImage(bytes, file.name);
             ])))),
           if (_error != null) Text(_error!, style: const TextStyle(color: Colors.redAccent)),
         ]))))),
-      actions: [if (_busy) const CircularProgressIndicator(), TextButton(onPressed: _busy ? null : _cancel, child: const Text('Cancel')),
+      actions: [if (_busy) const CircularProgressIndicator(),
+        if (widget.banner != null) TextButton.icon(onPressed: _busy ? null : _delete,
+          icon: const Icon(Icons.delete_outline, color: Colors.redAccent),
+          label: const Text('Delete banner', style: TextStyle(color: Colors.redAccent))),
+        TextButton(onPressed: _busy ? null : _cancel, child: const Text('Cancel')),
         FilledButton(onPressed: _busy ? null : _save, child: const Text('Save banner'))],
     ));
   }
