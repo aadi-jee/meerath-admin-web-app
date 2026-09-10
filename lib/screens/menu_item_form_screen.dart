@@ -8,6 +8,7 @@ import '../data/offer_rules.dart';
 import '../data/mock_data.dart';
 import '../theme/app_colors.dart';
 import '../widgets/ui_bits.dart';
+import '../widgets/pairing_editor.dart';
 
 class MenuItemFormScreen extends StatefulWidget {
   const MenuItemFormScreen({
@@ -44,7 +45,10 @@ class MenuItemFormScreenState
   late final TextEditingController _internalNotes;
   final _offerDiscountInput = TextEditingController();
   final _offerMaxQtyInput = TextEditingController();
+  final _offerMinSpendInput = TextEditingController();
   String? _cleanSnapshot;
+  List<String> _recommendedIds = [];
+  List<Map<String,dynamic>> _pairingItems = [];
   bool _confirmingLeave = false;
 Uint8List? _selectedImageBytes;
 String? _selectedImageName;
@@ -100,13 +104,14 @@ final Set<int> _selectedDays = {1, 2, 3, 4, 5, 6, 7};
     'Availability',
     'Visibility & Media',
     'Offers', // ⬅️ NAYA TAB
+    'Recommendations',
   ];
 
   @override
   void initState() {
     super.initState();
 
-    _tabIndex = widget.initialTab.clamp(0, 5).toInt();
+    _tabIndex = widget.initialTab.clamp(0, 6).toInt();
     final item = widget.item;
     _itemId=item?.id??MenuRepository.newId();
     _imageUrl=item?.imageUrl;
@@ -172,10 +177,11 @@ _selectedImageName = item?.imageName;
   // Compare actual editable values at navigation time. Tab changes and focus
   // changes are not edits; controllers also cover fields without onChanged.
   String _editSnapshot() => jsonEncode({
+    'recommended_ids': _recommendedIds,
     'text': [_nameEn.text, _nameAr.text, _shortEn.text, _shortAr.text,
       _price.text, _comparePrice.text, _prepTime.text, _calories.text,
       _servingSize.text, _internalNotes.text, _offerDiscountInput.text,
-      _offerMaxQtyInput.text],
+      _offerMaxQtyInput.text, _offerMinSpendInput.text],
     'category': [_category, _subcategory],
     'visibility': [_available, _showInCustomerApp, _featured, _bestSeller,
       _newItem, _vatIncluded, _spiceLevel],
@@ -231,6 +237,8 @@ _selectedImageName = item?.imageName;
       final categoryRows=await repo.loadCategories();
       final subRows=await repo.loadSubcategories(categoryRows.map((r)=>r['id'] as String).toList());
       final branches=await repo.loadBranches();
+      final pairingItems=await repo.loadMenuItems();
+      final recommendedIds=widget.item==null ? <String>[] : await repo.loadPairings(_itemId);
       Map<String,dynamic>? row;
       List<Map<String,dynamic>> schedules=[];
       List<String> assigned=[];
@@ -250,6 +258,8 @@ _selectedImageName = item?.imageName;
           name:r['name_en'] as String,nameAr:r['name_ar'] as String? ?? '',
           displayOrder:(r['sort_order'] as num).toInt(),active:r['is_active']==true)).toList();
         _branches=branches;
+        _pairingItems=pairingItems;
+        _recommendedIds=recommendedIds;
         _originalSchedules=schedules;
         if(loadedRow!=null){
           final data=loadedRow;
@@ -278,6 +288,7 @@ _selectedImageName = item?.imageName;
           _offerValidTo = OfferRules.parseDate(_attributes['offer_valid_to']);
           _offerActive = _attributes['offer_active'] == true;
           _offerMaxQtyInput.text = _attributes['offer_max_qty']?.toString() ?? '';
+          _offerMinSpendInput.text = _attributes['offer_min_regular_spend']?.toString() ?? '';
           _comparePrice.text=_attributes['compare_at_price']?.toString()??'';
           _prepTime.text=(_attributes['prep_time']??25).toString();
           _calories.text=(_attributes['calories']??0).toString();
@@ -327,6 +338,7 @@ _selectedImageName = item?.imageName;
     _internalNotes.dispose();
     _offerDiscountInput.dispose();
     _offerMaxQtyInput.dispose();
+    _offerMinSpendInput.dispose();
 
     super.dispose();
   }
@@ -621,7 +633,14 @@ void _removeItemImage() {
     }
     final offerMaxQtyText = _offerMaxQtyInput.text.trim();
     final offerMaxQty = int.tryParse(offerMaxQtyText);
+    final offerMinSpendText = _offerMinSpendInput.text.trim();
+    final offerMinSpend = offerMinSpendText.isEmpty ? 0.0 : double.tryParse(offerMinSpendText);
     if (_hasOffer) {
+      if (offerMinSpend == null || !offerMinSpend.isFinite || offerMinSpend < 0 ||
+          offerMinSpend > 99999.99 || (offerMinSpendText.isNotEmpty &&
+          !RegExp(r'^\d+(\.\d{1,2})?$').hasMatch(offerMinSpendText))) {
+        invalid = 'Minimum regular-items spend must be 0–99999.99 SAR, with at most 2 decimal places.';
+      }
       invalid = OfferRules.validate(price: price ?? -1, discount: _offerDiscount,
         type: _offerType, from: _offerValidFrom, to: _offerValidTo) ?? invalid;
       if (offerMaxQtyText.isNotEmpty &&
@@ -656,10 +675,11 @@ void _removeItemImage() {
           'offer_valid_to': _offerValidTo == null ? null : OfferRules.storageDate(_offerValidTo!),
           'offer_active': _offerActive,
           'offer_max_qty': _hasOffer ? offerMaxQty : null,
+          'offer_min_regular_spend': _hasOffer ? offerMinSpend : null,
         },
       }, schedules:!_scheduleChanged&&_originalSchedules.length==7?_originalSchedules:List.generate(7,(i)=>{'day_of_week':i+1,'is_available':_selectedDays.contains(i+1),
         'start_time':_scheduleAllDay?null:_timeText(_startTime),'end_time':_scheduleAllDay?null:_timeText(_endTime)}),
-        branchIds:branchIds,notes:_internalNotes.text.trim());
+        branchIds:branchIds,notes:_internalNotes.text.trim(),recommendedIds:_recommendedIds);
       
       
       if(!mounted)return;
@@ -828,6 +848,9 @@ if (_loadError != null) {
 
       case 5:
         return _buildOfferTab(); // ⬅️ NAYA OFFER TAB
+      case 6:
+        return PairingEditor(sourceId:_itemId, items:_pairingItems, selected:_recommendedIds,
+          onChanged:(ids)=>setState(()=>_recommendedIds=ids));
 
       default:
         return _buildBasicInfo();
@@ -1878,6 +1901,20 @@ const Divider(
                 ),
                 const SizedBox(height: 16),
 
+                const Text('Minimum regular-items spend per discounted unit (SAR, VAT included)',
+                  style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600)),
+                const SizedBox(height: 8),
+                TextFormField(
+                  controller: _offerMinSpendInput,
+                  keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                  decoration: const InputDecoration(
+                    border: OutlineInputBorder(),
+                    hintText: 'Blank or 0 = no minimum; e.g. 30',
+                    helperText: 'Only regular-priced items count; delivery and discounted items do not. Requirements add for every discounted unit in the cart.',
+                    helperMaxLines: 4,
+                  ),
+                ),
+                const SizedBox(height: 16),
                 // Valid From
                 const Text(
                   'Valid From',

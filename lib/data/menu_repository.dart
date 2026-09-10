@@ -83,10 +83,27 @@ class MenuRepository {
     required List<Map<String,dynamic>> schedules,
     required List<String> branchIds,
     required String notes,
-  }) async => (await _client.rpc('save_admin_menu_item',params:{
+    List<String>? recommendedIds,
+  }) async => (await _client.rpc(recommendedIds == null ? 'save_admin_menu_item' : 'save_admin_menu_item_with_pairings',params:{
     'target_restaurant_id':restaurantId,'item_data':values,
     'schedule_data':schedules,'branch_ids':branchIds,'private_notes':notes,
+    'recommended_ids': ?recommendedIds,
   })) as String;
+
+  Future<List<String>> loadPairings(String id) async {
+    final rows = await _client.from('menu_item_recommendations').select('recommended_item_id')
+      .eq('restaurant_id',restaurantId).eq('source_item_id',id).order('priority');
+    return rows.map((r)=>r['recommended_item_id'] as String).toList();
+  }
+
+  Future<List<Map<String,dynamic>>> loadBanners() async =>
+    List<Map<String,dynamic>>.from(await _client.from('home_banners').select()
+      .eq('restaurant_id',restaurantId).order('slot'));
+
+  Future<void> saveBanner(Map<String,dynamic> values) async {
+    await _client.from('home_banners').upsert({...values,'restaurant_id':restaurantId},
+      onConflict:'restaurant_id,slot').select('slot').single();
+  }
 
   Future<void> duplicateMenuItem(String id) async {
     final row = await loadItem(id);

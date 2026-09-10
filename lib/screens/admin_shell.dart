@@ -8,6 +8,7 @@ import 'dashboard_screen.dart';
 import 'menu_item_form_screen.dart';
 import 'menu_screen.dart';
 import 'placeholder_screen.dart';
+import 'app_content_screen.dart';
 import 'offer_screen.dart';
 
 class AdminShell extends StatefulWidget {
@@ -129,6 +130,7 @@ class _AdminShellState extends State<AdminShell> {
       case 0: return const DashboardScreen();
       case 1: return MenuScreen(onAdd: _openMenuForm, onEdit: _openMenuForm);
       case 2: return OfferScreen(onEdit: _openOfferForm);
+      case 4: return const AppContentScreen();
       default:
         const placeholders = {
           3: ('Customers', 'Customer profiles and loyalty will be added later.'),
