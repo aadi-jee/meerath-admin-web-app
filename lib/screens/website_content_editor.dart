@@ -19,11 +19,17 @@ class _WebsiteContentEditorState extends State<WebsiteContentEditor> {
   Map<String, dynamic> _original = {};
   List<Map<String, dynamic>> _items = [];
   bool _announcementEnabled = false;
+  bool _cateringAnnouncementEnabled = false;
   bool _loading = true, _busy = false, _dirty = false, _loaded = false;
   int _revision = 0, _section = 0;
   String? _error;
 
   static const fields = <String, String>{
+    'snapchat_url': 'Snapchat link',
+    'catering_announcement_en': 'Catering announcement — English',
+    'catering_announcement_ar': 'Catering announcement — Arabic',
+    'catering_occasions_en': 'Occasions — English (separate with |)',
+    'catering_occasions_ar': 'Occasions — Arabic (separate with |)',
     'announcement_en': 'Announcement — English',
     'announcement_ar': 'Announcement — Arabic',
     'hero_url': 'Homepage cover',
@@ -50,11 +56,7 @@ class _WebsiteContentEditorState extends State<WebsiteContentEditor> {
     'catering_gallery_6_url': 'Portfolio photo 6',
   };
   static const sections = [
-    (
-      Icons.campaign_outlined,
-      'Announcement',
-      'Short message shown across the website',
-    ),
+    (Icons.campaign_outlined, 'Announcement', 'Homepage and catering messages'),
     (Icons.home_outlined, 'Homepage', 'Cover, heading and introduction'),
     (
       Icons.storefront_outlined,
@@ -91,7 +93,9 @@ class _WebsiteContentEditorState extends State<WebsiteContentEditor> {
     try {
       final row = await _repo.load();
       final items = await _menu.loadMenuItems();
-      if (!mounted) return;
+      if (!mounted) {
+        return;
+      }
       final data = Map<String, dynamic>.from(row?['content'] as Map? ?? {});
       for (final field in _fields.entries) {
         field.value.text = data[field.key] as String? ?? '';
@@ -102,15 +106,21 @@ class _WebsiteContentEditorState extends State<WebsiteContentEditor> {
       setState(() {
         _original = data;
         _announcementEnabled = data['announcement_enabled'] == true;
+        _cateringAnnouncementEnabled =
+            data['catering_announcement_enabled'] == true;
         _revision = (row?['revision'] as num?)?.toInt() ?? 0;
         _items = items;
         _dirty = false;
         _loaded = true;
       });
     } catch (e) {
-      if (mounted) setState(() => _error = MenuRepository.errorMessage(e));
+      if (mounted) {
+        setState(() => _error = MenuRepository.errorMessage(e));
+      }
     } finally {
-      if (mounted) setState(() => _loading = false);
+      if (mounted) {
+        setState(() => _loading = false);
+      }
     }
   }
 
@@ -123,7 +133,9 @@ class _WebsiteContentEditorState extends State<WebsiteContentEditor> {
   }
 
   Future<void> _close() async {
-    if (_busy) return;
+    if (_busy) {
+      return;
+    }
     if (_dirty) {
       final discard = await showDialog<bool>(
         context: context,
@@ -144,9 +156,13 @@ class _WebsiteContentEditorState extends State<WebsiteContentEditor> {
           ],
         ),
       );
-      if (discard != true || !mounted) return;
+      if (discard != true || !mounted) {
+        return;
+      }
     }
-    if (mounted) Navigator.pop(context);
+    if (mounted) {
+      Navigator.pop(context);
+    }
   }
 
   Future<void> _upload(String key) async {
@@ -156,7 +172,9 @@ class _WebsiteContentEditorState extends State<WebsiteContentEditor> {
     });
     try {
       final file = await FilePicker.pickFile(type: FileType.image);
-      if (file == null) return;
+      if (file == null) {
+        return;
+      }
       if (await file.length() > 5 * 1024 * 1024) {
         throw const FormatException('Choose a JPG, PNG or WebP under 5 MB.');
       }
@@ -168,18 +186,32 @@ class _WebsiteContentEditorState extends State<WebsiteContentEditor> {
         });
       }
     } catch (e) {
-      if (mounted) setState(() => _error = MenuRepository.errorMessage(e));
+      if (mounted) {
+        setState(() => _error = MenuRepository.errorMessage(e));
+      }
     } finally {
-      if (mounted) setState(() => _busy = false);
+      if (mounted) {
+        setState(() => _busy = false);
+      }
     }
   }
 
   int _limit(String key) {
-    if (key.startsWith('announcement_')) return 140;
-    if (key.startsWith('heading_')) return 90;
-    if (key.startsWith('intro_')) return 260;
-    if (key.startsWith('address_')) return 220;
-    if (key.startsWith('hours_')) return 180;
+    if (key.contains('announcement_')) {
+      return 140;
+    }
+    if (key.startsWith('heading_')) {
+      return 90;
+    }
+    if (key.startsWith('intro_')) {
+      return 260;
+    }
+    if (key.startsWith('address_')) {
+      return 220;
+    }
+    if (key.startsWith('hours_')) {
+      return 180;
+    }
     return 3000;
   }
 
@@ -311,7 +343,7 @@ class _WebsiteContentEditorState extends State<WebsiteContentEditor> {
         child: SwitchListTile(
           secondary: const Icon(Icons.campaign_outlined),
           title: const Text(
-            'Show announcement on website',
+            'Show homepage announcement',
             style: TextStyle(fontWeight: FontWeight.w700),
           ),
           subtitle: Text(
@@ -332,11 +364,21 @@ class _WebsiteContentEditorState extends State<WebsiteContentEditor> {
         hint: 'Weekend family platter — available Thursday to Saturday',
       ),
       _field('announcement_ar', hint: 'اكتب الإعلان بالعربية'),
-      const _InfoNote(
-        icon: Icons.auto_awesome_outlined,
-        text:
-            'The message moves gently across the top of the website. Keep it short and clear.',
+      const SizedBox(height: 24),
+      _heading(
+        'Catering announcement',
+        'Only appears on Events & Catering. Keep the message short and welcoming.',
       ),
+      SwitchListTile(
+        title: const Text('Show catering announcement'),
+        value: _cateringAnnouncementEnabled,
+        onChanged: (value) => setState(() {
+          _cateringAnnouncementEnabled = value;
+          _dirty = true;
+        }),
+      ),
+      _field('catering_announcement_en'),
+      _field('catering_announcement_ar'),
     ],
   );
 
@@ -405,6 +447,7 @@ class _WebsiteContentEditorState extends State<WebsiteContentEditor> {
       _field('instagram_url'),
       _field('facebook_url'),
       _field('tiktok_url'),
+      _field('snapchat_url'),
     ],
   );
 
@@ -414,6 +457,20 @@ class _WebsiteContentEditorState extends State<WebsiteContentEditor> {
       _heading(
         'Events portfolio',
         'Refresh these photos as Meerath completes stronger events and catering work.',
+      ),
+      _field(
+        'catering_occasions_en',
+        hint:
+            'Corporate lunches | Family gatherings | Birthdays | Anniversaries',
+      ),
+      _field(
+        'catering_occasions_ar',
+        hint: 'غداء الشركات | التجمعات العائلية | حفلات الميلاد',
+      ),
+      const _InfoNote(
+        icon: Icons.info_outline,
+        text:
+            'Separate occasions with |. Leave blank to use the original occasion list.',
       ),
       _image(
         'catering_hero_url',
@@ -499,7 +556,18 @@ class _WebsiteContentEditorState extends State<WebsiteContentEditor> {
   };
 
   Future<void> _save() async {
-    if (!_loaded || !_form.currentState!.validate()) return;
+    if (!_loaded || !_form.currentState!.validate()) {
+      return;
+    }
+    if (_cateringAnnouncementEnabled &&
+        _fields['catering_announcement_en']!.text.trim().isEmpty &&
+        _fields['catering_announcement_ar']!.text.trim().isEmpty) {
+      setState(() {
+        _section = 0;
+        _error = 'Add a catering announcement before switching it on.';
+      });
+      return;
+    }
     if (_announcementEnabled &&
         _fields['announcement_en']!.text.trim().isEmpty &&
         _fields['announcement_ar']!.text.trim().isEmpty) {
@@ -519,10 +587,13 @@ class _WebsiteContentEditorState extends State<WebsiteContentEditor> {
       for (final entry in _fields.entries) {
         content[entry.key] = entry.value.text.trim();
       }
+      content['catering_announcement_enabled'] = _cateringAnnouncementEnabled;
       content['announcement_enabled'] = _announcementEnabled;
       content['featured_ids'] = _selected;
       final revision = await _repo.save(content, _revision);
-      if (!mounted) return;
+      if (!mounted) {
+        return;
+      }
       setState(() {
         _original = content;
         _revision = revision;
@@ -532,15 +603,21 @@ class _WebsiteContentEditorState extends State<WebsiteContentEditor> {
         const SnackBar(content: Text('Website published successfully.')),
       );
     } catch (e) {
-      if (mounted) setState(() => _error = MenuRepository.errorMessage(e));
+      if (mounted) {
+        setState(() => _error = MenuRepository.errorMessage(e));
+      }
     } finally {
-      if (mounted) setState(() => _busy = false);
+      if (mounted) {
+        setState(() => _busy = false);
+      }
     }
   }
 
   String? _validate(String key, String? value) {
     final text = (value ?? '').trim();
-    if (text.isEmpty) return null;
+    if (text.isEmpty) {
+      return null;
+    }
     if (key.endsWith('_url')) {
       final url = Uri.tryParse(text);
       if (url == null ||
@@ -632,13 +709,17 @@ class _WebsiteContentEditorState extends State<WebsiteContentEditor> {
                             final section = sections[index];
                             return ListTile(
                               selected: _section == index,
-                              selectedTileColor: Theme.of(
-                                context,
-                              ).colorScheme.primaryContainer,
+                              selectedColor: const Color(0xFF211509),
+                              selectedTileColor: const Color(0xFFFFB43C),
                               shape: RoundedRectangleBorder(
                                 borderRadius: BorderRadius.circular(14),
                               ),
-                              leading: Icon(section.$1),
+                              leading: Icon(
+                                section.$1,
+                                color: _section == index
+                                    ? const Color(0xFF211509)
+                                    : null,
+                              ),
                               title: Text(
                                 section.$2,
                                 style: const TextStyle(
@@ -646,7 +727,15 @@ class _WebsiteContentEditorState extends State<WebsiteContentEditor> {
                                 ),
                               ),
                               subtitle: desktop
-                                  ? Text(section.$3, maxLines: 2)
+                                  ? Text(
+                                      section.$3,
+                                      maxLines: 2,
+                                      style: TextStyle(
+                                        color: _section == index
+                                            ? const Color(0xFF493113)
+                                            : null,
+                                      ),
+                                    )
                                   : null,
                               onTap: () => setState(() => _section = index),
                             );
@@ -693,6 +782,12 @@ class _WebsiteContentEditorState extends State<WebsiteContentEditor> {
                                 separatorBuilder: (_, _) =>
                                     const SizedBox(width: 8),
                                 itemBuilder: (context, i) => ChoiceChip(
+                                  selectedColor: const Color(0xFFFFB43C),
+                                  labelStyle: TextStyle(
+                                    color: _section == i
+                                        ? const Color(0xFF211509)
+                                        : const Color(0xFFF4F1EA),
+                                  ),
                                   avatar: Icon(sections[i].$1, size: 18),
                                   label: Text(sections[i].$2),
                                   selected: _section == i,
