@@ -68,7 +68,10 @@ class TopHeader extends StatelessWidget {
                     Expanded(
                       child: Text(
                         'Search anything...',
-                        style: TextStyle(color: AppColors.textDim, fontSize: 13),
+                        style: TextStyle(
+                          color: AppColors.textDim,
+                          fontSize: 13,
+                        ),
                       ),
                     ),
                     _ShortcutHint(),
@@ -88,7 +91,11 @@ class TopHeader extends StatelessWidget {
             ),
             child: const Row(
               children: [
-                Icon(Icons.calendar_today_outlined, size: 16, color: AppColors.textMuted),
+                Icon(
+                  Icons.calendar_today_outlined,
+                  size: 16,
+                  color: AppColors.textMuted,
+                ),
                 SizedBox(width: 8),
                 Text('Today', style: TextStyle(fontSize: 13)),
                 SizedBox(width: 4),
@@ -123,7 +130,10 @@ class TopHeader extends StatelessWidget {
             backgroundColor: Color(0xFF3A2A18),
             child: Text(
               'A',
-              style: TextStyle(color: AppColors.accent, fontWeight: FontWeight.w700),
+              style: TextStyle(
+                color: AppColors.accent,
+                fontWeight: FontWeight.w700,
+              ),
             ),
           ),
           const Icon(Icons.expand_more, size: 16, color: AppColors.textMuted),

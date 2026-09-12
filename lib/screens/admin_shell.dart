@@ -10,6 +10,7 @@ import 'menu_screen.dart';
 import 'placeholder_screen.dart';
 import 'app_content_screen.dart';
 import 'offer_screen.dart';
+import 'channel_pricing_screen.dart';
 
 class AdminShell extends StatefulWidget {
   const AdminShell({super.key});
@@ -27,7 +28,8 @@ class _AdminShellState extends State<AdminShell> {
   bool _formSaving = false;
   bool _navigationPending = false;
   bool _drawerOpen = false;
-  GlobalKey<MenuItemFormScreenState> _formKey = GlobalKey<MenuItemFormScreenState>();
+  GlobalKey<MenuItemFormScreenState> _formKey =
+      GlobalKey<MenuItemFormScreenState>();
 
   bool get _locked => _formSaving || _navigationPending;
 
@@ -35,7 +37,9 @@ class _AdminShellState extends State<AdminShell> {
   void _openOfferForm(MenuItemData item) => _openForm(item, offers: true);
 
   void _openForm(MenuItemData? item, {required bool offers}) {
-    if (_locked || _showMenuForm) return;
+    if (_locked || _showMenuForm) {
+      return;
+    }
     setState(() {
       _formReturnIndex = offers ? 2 : 1;
       _navIndex = _formReturnIndex;
@@ -48,22 +52,32 @@ class _AdminShellState extends State<AdminShell> {
 
   // All sidebar and form-cancel navigation shares the same exit check.
   Future<void> _selectSection(int index) async {
-    if (index < 0 || index > 7 || _locked) return;
-    if (!_showMenuForm && index == _navIndex) return;
+    if (index < 0 || index > 8 || _locked) {
+      return;
+    }
+    if (!_showMenuForm && index == _navIndex) {
+      return;
+    }
     setState(() => _navigationPending = true);
     try {
       if (_showMenuForm) {
         final form = _formKey.currentState;
-        if (form == null || !await form.confirmLeave()) return;
+        if (form == null || !await form.confirmLeave()) {
+          return;
+        }
       }
-      if (!mounted) return;
+      if (!mounted) {
+        return;
+      }
       setState(() {
         _navIndex = index;
         _showMenuForm = false;
         _editingItem = null;
       });
     } finally {
-      if (mounted) setState(() => _navigationPending = false);
+      if (mounted) {
+        setState(() => _navigationPending = false);
+      }
     }
   }
 
@@ -73,7 +87,9 @@ class _AdminShellState extends State<AdminShell> {
 
   // Successful save is distinct from Cancel: it must not show a discard dialog.
   void _onFormSaved() {
-    if (!mounted) return;
+    if (!mounted) {
+      return;
+    }
     setState(() {
       _showMenuForm = false;
       _editingItem = null;
@@ -83,11 +99,15 @@ class _AdminShellState extends State<AdminShell> {
   }
 
   void _onSavingChanged(bool saving) {
-    if (mounted && _formSaving != saving) setState(() => _formSaving = saving);
+    if (mounted && _formSaving != saving) {
+      setState(() => _formSaving = saving);
+    }
   }
 
   Future<void> _openSidebar() async {
-    if (_locked || _drawerOpen) return;
+    if (_locked || _drawerOpen) {
+      return;
+    }
     _drawerOpen = true;
     try {
       final selected = await showGeneralDialog<int>(
@@ -98,18 +118,22 @@ class _AdminShellState extends State<AdminShell> {
           alignment: Alignment.centerLeft,
           child: Material(
             color: AppColors.sidebar,
-            child: SafeArea(child: SizedBox(
-              width: 236,
-              height: MediaQuery.of(dialogContext).size.height,
-              child: AppSidebar(
-                selectedIndex: _navIndex,
-                onSelect: (index) => Navigator.pop(dialogContext, index),
+            child: SafeArea(
+              child: SizedBox(
+                width: 236,
+                height: MediaQuery.of(dialogContext).size.height,
+                child: AppSidebar(
+                  selectedIndex: _navIndex,
+                  onSelect: (index) => Navigator.pop(dialogContext, index),
+                ),
               ),
-            )),
+            ),
           ),
         ),
       );
-      if (mounted && selected != null) await _selectSection(selected);
+      if (mounted && selected != null) {
+        await _selectSection(selected);
+      }
     } finally {
       _drawerOpen = false;
     }
@@ -127,20 +151,37 @@ class _AdminShellState extends State<AdminShell> {
       );
     }
     switch (_navIndex) {
-      case 0: return const DashboardScreen();
-      case 1: return MenuScreen(onAdd: _openMenuForm, onEdit: _openMenuForm);
-      case 2: return OfferScreen(onEdit: _openOfferForm);
-      case 4: return const AppContentScreen();
+      case 8:
+        return const ChannelPricingScreen();
+      case 0:
+        return const DashboardScreen();
+      case 1:
+        return MenuScreen(onAdd: _openMenuForm, onEdit: _openMenuForm);
+      case 2:
+        return OfferScreen(onEdit: _openOfferForm);
+      case 4:
+        return const AppContentScreen();
       default:
         const placeholders = {
-          3: ('Customers', 'Customer profiles and loyalty will be added later.'),
+          3: (
+            'Customers',
+            'Customer profiles and loyalty will be added later.',
+          ),
           4: ('App Content', 'Banners and home content tools will live here.'),
-          5: ('Notifications', 'Push campaigns will be managed from this screen.'),
+          5: (
+            'Notifications',
+            'Push campaigns will be managed from this screen.',
+          ),
           6: ('Reports', 'Sales and operations reports will appear here.'),
-          7: ('Settings', 'Restaurant, tax, and staff settings will appear here.'),
+          7: (
+            'Settings',
+            'Restaurant, tax, and staff settings will appear here.',
+          ),
         };
         final data = placeholders[_navIndex];
-        if (data == null) return const DashboardScreen();
+        if (data == null) {
+          return const DashboardScreen();
+        }
         return PlaceholderScreen(title: data.$1, subtitle: data.$2);
     }
   }
@@ -150,27 +191,51 @@ class _AdminShellState extends State<AdminShell> {
     return PopScope<Object?>(
       canPop: !_showMenuForm && !_locked,
       onPopInvokedWithResult: (didPop, result) {
-        if (!didPop && _showMenuForm && !_locked) _requestCloseForm();
+        if (!didPop && _showMenuForm && !_locked) {
+          _requestCloseForm();
+        }
       },
       child: Scaffold(
         backgroundColor: AppColors.scaffold,
-        body: LayoutBuilder(builder: (context, constraints) {
-          final compact = constraints.maxWidth < 1100;
-          return ExcludeFocus(excluding: _locked, child: Row(children: [
-            if (!compact)
-              AbsorbPointer(absorbing: _locked, child: AppSidebar(
-                selectedIndex: _navIndex,
-                onSelect: _selectSection,
-              )),
-            Expanded(child: Column(children: [
-              AbsorbPointer(absorbing: _locked, child: TopHeader(
-                branchName: 'Meerath Riyadh',
-                onMenuTap: compact ? _openSidebar : null,
-              )),
-              Expanded(child: AbsorbPointer(absorbing: _locked, child: _body())),
-            ])),
-          ]));
-        }),
+        body: LayoutBuilder(
+          builder: (context, constraints) {
+            final compact = constraints.maxWidth < 1100;
+            return ExcludeFocus(
+              excluding: _locked,
+              child: Row(
+                children: [
+                  if (!compact)
+                    AbsorbPointer(
+                      absorbing: _locked,
+                      child: AppSidebar(
+                        selectedIndex: _navIndex,
+                        onSelect: _selectSection,
+                      ),
+                    ),
+                  Expanded(
+                    child: Column(
+                      children: [
+                        AbsorbPointer(
+                          absorbing: _locked,
+                          child: TopHeader(
+                            branchName: 'Meerath Riyadh',
+                            onMenuTap: compact ? _openSidebar : null,
+                          ),
+                        ),
+                        Expanded(
+                          child: AbsorbPointer(
+                            absorbing: _locked,
+                            child: _body(),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            );
+          },
+        ),
       ),
     );
   }

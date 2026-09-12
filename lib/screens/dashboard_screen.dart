@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../data/mock_data.dart';
 import '../theme/app_colors.dart';
 import '../widgets/charts.dart';
+import '../widgets/catering_dashboard_alert.dart';
 import '../widgets/ui_bits.dart';
 
 class DashboardScreen extends StatelessWidget {
@@ -23,23 +24,19 @@ class DashboardScreen extends StatelessWidget {
           children: [
             const Text(
               'Dashboard',
-              style: TextStyle(
-                fontSize: 28,
-                fontWeight: FontWeight.w800,
-              ),
+              style: TextStyle(fontSize: 28, fontWeight: FontWeight.w800),
             ),
             const SizedBox(height: 5),
             const Text(
               'Live overview of today’s restaurant performance.',
-              style: TextStyle(
-                color: AppColors.textMuted,
-                fontSize: 14,
-              ),
+              style: TextStyle(color: AppColors.textMuted, fontSize: 14),
             ),
 
             const SizedBox(height: 22),
 
             // KPI CARDS
+            const CateringDashboardAlert(),
+            const SizedBox(height: 16),
             if (fourKpis)
               Row(
                 children: [
@@ -64,8 +61,7 @@ class DashboardScreen extends StatelessWidget {
                 mainAxisSpacing: 12,
                 childAspectRatio: width >= 620 ? 2.35 : 3.2,
                 children: [
-                  for (final data in MockData.kpis)
-                    _CompactKpi(data: data),
+                  for (final data in MockData.kpis) _CompactKpi(data: data),
                 ],
               ),
 
@@ -76,15 +72,9 @@ class DashboardScreen extends StatelessWidget {
               const Row(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Expanded(
-                    flex: 7,
-                    child: _SalesOverview(),
-                  ),
+                  Expanded(flex: 7, child: _SalesOverview()),
                   SizedBox(width: 16),
-                  Expanded(
-                    flex: 5,
-                    child: _SalesBySource(),
-                  ),
+                  Expanded(flex: 5, child: _SalesBySource()),
                 ],
               )
             else ...[
@@ -124,10 +114,7 @@ class DashboardScreen extends StatelessWidget {
             const Center(
               child: Text(
                 '© MEERATH Restaurant',
-                style: TextStyle(
-                  color: AppColors.textDim,
-                  fontSize: 11,
-                ),
+                style: TextStyle(color: AppColors.textDim, fontSize: 11),
               ),
             ),
           ],
@@ -158,11 +145,7 @@ class _CompactKpi extends StatelessWidget {
                   color: AppColors.accentSoft,
                   borderRadius: BorderRadius.circular(10),
                 ),
-                child: Icon(
-                  data.icon,
-                  color: AppColors.accent,
-                  size: 19,
-                ),
+                child: Icon(data.icon, color: AppColors.accent, size: 19),
               ),
               const Spacer(),
               Text(
@@ -178,27 +161,19 @@ class _CompactKpi extends StatelessWidget {
           const SizedBox(height: 12),
           Text(
             data.label,
-            style: const TextStyle(
-              color: AppColors.textMuted,
-              fontSize: 12,
-            ),
+            style: const TextStyle(color: AppColors.textMuted, fontSize: 12),
           ),
           const SizedBox(height: 3),
           Text(
             data.value,
-            style: const TextStyle(
-              fontSize: 21,
-              fontWeight: FontWeight.w800,
-            ),
+            style: const TextStyle(fontSize: 21, fontWeight: FontWeight.w800),
           ),
           const Spacer(),
           SizedBox(
             height: 24,
             width: double.infinity,
             child: CustomPaint(
-              painter: SparklinePainter(
-                values: data.sparkline,
-              ),
+              painter: SparklinePainter(values: data.sparkline),
             ),
           ),
         ],
@@ -223,28 +198,19 @@ class _SalesOverview extends StatelessWidget {
                 children: [
                   Text(
                     'Sales Overview',
-                    style: TextStyle(
-                      fontSize: 16,
-                      fontWeight: FontWeight.w700,
-                    ),
+                    style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700),
                   ),
                   SizedBox(height: 3),
                   Text(
                     'Last 7 days',
-                    style: TextStyle(
-                      color: AppColors.textMuted,
-                      fontSize: 12,
-                    ),
+                    style: TextStyle(color: AppColors.textMuted, fontSize: 12),
                   ),
                 ],
               ),
               Spacer(),
               Text(
                 'SAR 52,310',
-                style: TextStyle(
-                  fontSize: 18,
-                  fontWeight: FontWeight.w800,
-                ),
+                style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800),
               ),
             ],
           ),
@@ -254,9 +220,7 @@ class _SalesOverview extends StatelessWidget {
             width: double.infinity,
             child: CustomPaint(
               painter: BarChartPainter(
-                values: MockData.salesLast7Days
-                    .map((e) => e.$2)
-                    .toList(),
+                values: MockData.salesLast7Days.map((e) => e.$2).toList(),
               ),
             ),
           ),
@@ -293,18 +257,12 @@ class _SalesBySource extends StatelessWidget {
         children: [
           const Text(
             'Sales by Source',
-            style: TextStyle(
-              fontSize: 16,
-              fontWeight: FontWeight.w700,
-            ),
+            style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700),
           ),
           const SizedBox(height: 4),
           const Text(
             'Where today’s sales are coming from',
-            style: TextStyle(
-              color: AppColors.textMuted,
-              fontSize: 12,
-            ),
+            style: TextStyle(color: AppColors.textMuted, fontSize: 12),
           ),
           const SizedBox(height: 20),
 
@@ -343,9 +301,7 @@ class _SalesBySource extends StatelessWidget {
                             Expanded(
                               child: Text(
                                 source.$1,
-                                style: const TextStyle(
-                                  fontSize: 12,
-                                ),
+                                style: const TextStyle(fontSize: 12),
                               ),
                             ),
                             Text(
@@ -382,18 +338,12 @@ class _TopItems extends StatelessWidget {
             children: [
               Text(
                 'Top Selling Items',
-                style: TextStyle(
-                  fontSize: 16,
-                  fontWeight: FontWeight.w700,
-                ),
+                style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700),
               ),
               Spacer(),
               Text(
                 'Today',
-                style: TextStyle(
-                  color: AppColors.textMuted,
-                  fontSize: 12,
-                ),
+                style: TextStyle(color: AppColors.textMuted, fontSize: 12),
               ),
             ],
           ),
@@ -403,11 +353,7 @@ class _TopItems extends StatelessWidget {
               padding: const EdgeInsets.only(bottom: 13),
               child: Row(
                 children: [
-                  FoodThumb(
-                    color: item.$4,
-                    radius: 10,
-                    size: 42,
-                  ),
+                  FoodThumb(color: item.$4, radius: 10, size: 42),
                   const SizedBox(width: 12),
                   Expanded(
                     child: Column(
@@ -461,10 +407,7 @@ class _RecentOrders extends StatelessWidget {
             children: [
               Text(
                 'Recent Orders',
-                style: TextStyle(
-                  fontSize: 16,
-                  fontWeight: FontWeight.w700,
-                ),
+                style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700),
               ),
               Spacer(),
               Text(
@@ -486,8 +429,7 @@ class _RecentOrders extends StatelessWidget {
                 children: [
                   Expanded(
                     child: Column(
-                      crossAxisAlignment:
-                          CrossAxisAlignment.start,
+                      crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Row(
                           children: [
@@ -523,8 +465,7 @@ class _RecentOrders extends StatelessWidget {
                   ),
                   const SizedBox(width: 8),
                   Column(
-                    crossAxisAlignment:
-                        CrossAxisAlignment.end,
+                    crossAxisAlignment: CrossAxisAlignment.end,
                     children: [
                       Text(
                         'SAR ${order.amount.toStringAsFixed(2)}',
@@ -561,10 +502,7 @@ class _OperationsPanel extends StatelessWidget {
             children: [
               const Text(
                 'Quick Actions',
-                style: TextStyle(
-                  fontSize: 16,
-                  fontWeight: FontWeight.w700,
-                ),
+                style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700),
               ),
               const SizedBox(height: 14),
               const Wrap(
@@ -597,10 +535,7 @@ class _OperationsPanel extends StatelessWidget {
             children: const [
               Text(
                 'Menu Alerts',
-                style: TextStyle(
-                  fontSize: 16,
-                  fontWeight: FontWeight.w700,
-                ),
+                style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700),
               ),
               SizedBox(height: 14),
               _AlertRow(
@@ -641,11 +576,7 @@ class _OperationsPanel extends StatelessWidget {
             children: [
               Expanded(child: actions),
               const SizedBox(width: 32),
-              Container(
-                width: 1,
-                height: 155,
-                color: AppColors.border,
-              ),
+              Container(width: 1, height: 155, color: AppColors.border),
               const SizedBox(width: 32),
               Expanded(child: alerts),
             ],
@@ -657,10 +588,7 @@ class _OperationsPanel extends StatelessWidget {
 }
 
 class _QuickAction extends StatelessWidget {
-  const _QuickAction({
-    required this.icon,
-    required this.label,
-  });
+  const _QuickAction({required this.icon, required this.label});
 
   final IconData icon;
   final String label;
@@ -669,10 +597,7 @@ class _QuickAction extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       width: 170,
-      padding: const EdgeInsets.symmetric(
-        horizontal: 14,
-        vertical: 13,
-      ),
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 13),
       decoration: BoxDecoration(
         color: AppColors.surface,
         borderRadius: BorderRadius.circular(11),
@@ -680,19 +605,12 @@ class _QuickAction extends StatelessWidget {
       ),
       child: Row(
         children: [
-          Icon(
-            icon,
-            color: AppColors.accent,
-            size: 18,
-          ),
+          Icon(icon, color: AppColors.accent, size: 18),
           const SizedBox(width: 9),
           Expanded(
             child: Text(
               label,
-              style: const TextStyle(
-                fontSize: 12,
-                fontWeight: FontWeight.w600,
-              ),
+              style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
             ),
           ),
         ],
@@ -714,24 +632,20 @@ class _AlertRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final color =
-        danger ? AppColors.danger : AppColors.warning;
+    final color = danger ? AppColors.danger : AppColors.warning;
 
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Icon(
-          danger
-              ? Icons.error_outline_rounded
-              : Icons.warning_amber_rounded,
+          danger ? Icons.error_outline_rounded : Icons.warning_amber_rounded,
           color: color,
           size: 19,
         ),
         const SizedBox(width: 10),
         Expanded(
           child: Column(
-            crossAxisAlignment:
-                CrossAxisAlignment.start,
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(
                 text,
@@ -769,10 +683,7 @@ class _ActivePromotions extends StatelessWidget {
             children: [
               Text(
                 'Active Promotions',
-                style: TextStyle(
-                  fontSize: 16,
-                  fontWeight: FontWeight.w700,
-                ),
+                style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700),
               ),
               Spacer(),
               Text(
@@ -852,8 +763,7 @@ class _PromoCard extends StatelessWidget {
           const SizedBox(width: 11),
           Expanded(
             child: Column(
-              crossAxisAlignment:
-                  CrossAxisAlignment.start,
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
                   title,

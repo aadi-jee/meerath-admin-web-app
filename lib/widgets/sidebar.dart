@@ -18,6 +18,7 @@ const adminNavItems = [
   NavItem('Notifications', Icons.notifications_none_rounded),
   NavItem('Reports', Icons.bar_chart_rounded),
   NavItem('Settings', Icons.settings_outlined),
+  NavItem('Channel Pricing', Icons.price_change_outlined),
 ];
 
 class AppSidebar extends StatelessWidget {
@@ -88,11 +89,16 @@ class AppSidebar extends StatelessWidget {
                       height: 46,
                       padding: const EdgeInsets.symmetric(horizontal: 12),
                       decoration: BoxDecoration(
-                        color: selected ? AppColors.accentSoft : Colors.transparent,
+                        color: selected
+                            ? AppColors.accentSoft
+                            : Colors.transparent,
                         borderRadius: BorderRadius.circular(12),
                         border: selected
                             ? const Border(
-                                left: BorderSide(color: AppColors.accent, width: 3),
+                                left: BorderSide(
+                                  color: AppColors.accent,
+                                  width: 3,
+                                ),
                               )
                             : null,
                       ),
@@ -101,14 +107,20 @@ class AppSidebar extends StatelessWidget {
                           Icon(
                             item.icon,
                             size: 20,
-                            color: selected ? AppColors.accent : AppColors.textMuted,
+                            color: selected
+                                ? AppColors.accent
+                                : AppColors.textMuted,
                           ),
                           const SizedBox(width: 12),
                           Text(
                             item.label,
                             style: TextStyle(
-                              color: selected ? AppColors.accent : AppColors.text,
-                              fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
+                              color: selected
+                                  ? AppColors.accent
+                                  : AppColors.text,
+                              fontWeight: selected
+                                  ? FontWeight.w700
+                                  : FontWeight.w500,
                               fontSize: 14,
                             ),
                           ),
@@ -164,7 +176,11 @@ class AppSidebar extends StatelessWidget {
                       ],
                     ),
                   ),
-                  Icon(Icons.location_on_outlined, color: AppColors.accent, size: 18),
+                  Icon(
+                    Icons.location_on_outlined,
+                    color: AppColors.accent,
+                    size: 18,
+                  ),
                 ],
               ),
             ),
@@ -190,10 +206,7 @@ class _BrandMark extends StatelessWidget {
       alignment: Alignment.center,
       child: const Text(
         'M',
-        style: TextStyle(
-          color: AppColors.accent,
-          fontWeight: FontWeight.w800,
-        ),
+        style: TextStyle(color: AppColors.accent, fontWeight: FontWeight.w800),
       ),
     );
   }

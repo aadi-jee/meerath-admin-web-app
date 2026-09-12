@@ -45,7 +45,10 @@ class AppTheme {
         fillColor: AppColors.input,
         hintStyle: const TextStyle(color: AppColors.textDim, fontSize: 14),
         labelStyle: const TextStyle(color: AppColors.textMuted, fontSize: 13),
-        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+        contentPadding: const EdgeInsets.symmetric(
+          horizontal: 16,
+          vertical: 16,
+        ),
         border: OutlineInputBorder(
           borderRadius: BorderRadius.circular(10),
           borderSide: const BorderSide(color: AppColors.border),

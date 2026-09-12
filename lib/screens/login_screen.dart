@@ -15,93 +15,90 @@ class _LoginScreenState extends State<LoginScreen> {
   bool _rememberMe = true;
 
   final _emailController = TextEditingController();
-final _passwordController = TextEditingController();
-bool _isLoading = false;
+  final _passwordController = TextEditingController();
+  bool _isLoading = false;
 
-void _showMessage(String message) {
-  if (!mounted) return;
-  ScaffoldMessenger.of(context).showSnackBar(
-    SnackBar(content: Text(message)),
-  );
-}
-
-Future<void> _signIn() async {
-  if (_isLoading) return;
-
-  final email = _emailController.text.trim();
-  final password = _passwordController.text;
-
-  if (email.isEmpty || password.isEmpty) {
-    _showMessage('Please enter your email and password.');
-    return;
+  void _showMessage(String message) {
+    if (!mounted) return;
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(SnackBar(content: Text(message)));
   }
 
-  setState(() => _isLoading = true);
+  Future<void> _signIn() async {
+    if (_isLoading) return;
 
-  final supabase = Supabase.instance.client;
-  bool accessApproved = false;
+    final email = _emailController.text.trim();
+    final password = _passwordController.text;
 
-  try {
-    final response = await supabase.auth.signInWithPassword(
-      email: email,
-      password: password,
-    );
-
-    if (response.user == null || response.session == null) {
-      _showMessage('Sign in failed. Please try again.');
+    if (email.isEmpty || password.isEmpty) {
+      _showMessage('Please enter your email and password.');
       return;
     }
 
-    final allowed = await supabase.rpc(
-      'can_manage_menu',
-      params: {
-        'target_restaurant_id':
-            '11111111-1111-1111-1111-111111111111',
-      },
-    );
+    setState(() => _isLoading = true);
 
-    if (allowed != true) {
-      _showMessage('You do not have Meerath admin access.');
-      return;
-    }
+    final supabase = Supabase.instance.client;
+    bool accessApproved = false;
 
-    accessApproved = true;
-    _passwordController.clear();
+    try {
+      final response = await supabase.auth.signInWithPassword(
+        email: email,
+        password: password,
+      );
 
-    if (!mounted) return;
+      if (response.user == null || response.session == null) {
+        _showMessage('Sign in failed. Please try again.');
+        return;
+      }
 
-    Navigator.of(context).pushReplacement(
-      MaterialPageRoute(
-        builder: (_) => const AdminShell(),
-      ),
-    );
-  } on AuthException catch (error) {
-    _showMessage(error.message);
-  } on PostgrestException catch (_) {
-    _showMessage('Unable to verify staff access. Please try again.');
-  } catch (_) {
-    _showMessage('Connection failed. Check your internet and try again.');
-  } finally {
-    if (!accessApproved) {
-      try {
-        await supabase.auth.signOut(scope: SignOutScope.local);
-      } catch (_) {
-        // Keep the dashboard closed even if session cleanup fails.
+      final allowed = await supabase.rpc(
+        'can_manage_menu',
+        params: {
+          'target_restaurant_id': '11111111-1111-1111-1111-111111111111',
+        },
+      );
+
+      if (allowed != true) {
+        _showMessage('You do not have Meerath admin access.');
+        return;
+      }
+
+      accessApproved = true;
+      _passwordController.clear();
+
+      if (!mounted) return;
+
+      Navigator.of(
+        context,
+      ).pushReplacement(MaterialPageRoute(builder: (_) => const AdminShell()));
+    } on AuthException catch (error) {
+      _showMessage(error.message);
+    } on PostgrestException catch (_) {
+      _showMessage('Unable to verify staff access. Please try again.');
+    } catch (_) {
+      _showMessage('Connection failed. Check your internet and try again.');
+    } finally {
+      if (!accessApproved) {
+        try {
+          await supabase.auth.signOut(scope: SignOutScope.local);
+        } catch (_) {
+          // Keep the dashboard closed even if session cleanup fails.
+        }
+      }
+
+      if (mounted) {
+        setState(() => _isLoading = false);
       }
     }
-
-    if (mounted) {
-      setState(() => _isLoading = false);
-    }
   }
-}
 
-@override
-void dispose() {
-  _emailController.dispose();
-  _passwordController.dispose();
-  super.dispose();
-}
+  @override
+  void dispose() {
+    _emailController.dispose();
+    _passwordController.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -142,22 +139,14 @@ void dispose() {
                       decoration: BoxDecoration(
                         color: const Color(0xFF111111),
                         borderRadius: BorderRadius.circular(26),
-                        border: Border.all(
-                          color: AppColors.border,
-                        ),
+                        border: Border.all(color: AppColors.border),
                       ),
                       clipBehavior: Clip.antiAlias,
                       child: Row(
                         crossAxisAlignment: CrossAxisAlignment.stretch,
                         children: [
-                          Expanded(
-                            flex: 5,
-                            child: _loginCard(),
-                          ),
-                          const Expanded(
-                            flex: 6,
-                            child: _BrandPanel(),
-                          ),
+                          Expanded(flex: 5, child: _loginCard()),
+                          const Expanded(flex: 6, child: _BrandPanel()),
                         ],
                       ),
                     ),
@@ -174,10 +163,7 @@ void dispose() {
   Widget _loginCard() {
     return Container(
       color: const Color(0xFF111111),
-      padding: const EdgeInsets.symmetric(
-        horizontal: 48,
-        vertical: 40,
-      ),
+      padding: const EdgeInsets.symmetric(horizontal: 48, vertical: 40),
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -188,62 +174,50 @@ void dispose() {
 
           const Text(
             'Welcome back',
-            style: TextStyle(
-              fontSize: 30,
-              fontWeight: FontWeight.w800,
-            ),
+            style: TextStyle(fontSize: 30, fontWeight: FontWeight.w800),
           ),
 
           const SizedBox(height: 8),
 
           const Text(
             'Sign in to manage your restaurant.',
-            style: TextStyle(
-              color: AppColors.textMuted,
-              fontSize: 14,
-            ),
+            style: TextStyle(color: AppColors.textMuted, fontSize: 14),
           ),
 
           const SizedBox(height: 30),
 
           const Text(
             'Work Email',
-            style: TextStyle(
-              fontSize: 13,
-              fontWeight: FontWeight.w600,
-            ),
+            style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
           ),
 
           const SizedBox(height: 8),
 
           TextField(
-  controller: _emailController,
-  enabled: !_isLoading,
-  keyboardType: TextInputType.emailAddress,
-  decoration: const InputDecoration(
-    hintText: 'Enter your work email',
-    prefixIcon: Icon(
-      Icons.mail_outline_rounded,
-      color: AppColors.textMuted,
-    ),
-  ),
-),
+            controller: _emailController,
+            enabled: !_isLoading,
+            keyboardType: TextInputType.emailAddress,
+            decoration: const InputDecoration(
+              hintText: 'Enter your work email',
+              prefixIcon: Icon(
+                Icons.mail_outline_rounded,
+                color: AppColors.textMuted,
+              ),
+            ),
+          ),
 
           const SizedBox(height: 18),
 
           const Text(
             'Password',
-            style: TextStyle(
-              fontSize: 13,
-              fontWeight: FontWeight.w600,
-            ),
+            style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
           ),
 
           const SizedBox(height: 8),
 
           TextField(
             controller: _passwordController,
-enabled: !_isLoading,
+            enabled: !_isLoading,
             obscureText: _hidePassword,
             decoration: InputDecoration(
               hintText: 'Enter your password',
@@ -279,19 +253,13 @@ enabled: !_isLoading,
                   });
                 },
               ),
-              const Text(
-                'Remember me',
-                style: TextStyle(fontSize: 13),
-              ),
+              const Text('Remember me', style: TextStyle(fontSize: 13)),
               const Spacer(),
               TextButton(
                 onPressed: () {},
                 child: const Text(
                   'Forgot password?',
-                  style: TextStyle(
-                    color: AppColors.accent,
-                    fontSize: 13,
-                  ),
+                  style: TextStyle(color: AppColors.accent, fontSize: 13),
                 ),
               ),
             ],
@@ -315,11 +283,8 @@ enabled: !_isLoading,
                   foregroundColor: Colors.black,
                 ),
                 child: Text(
-  _isLoading ? 'Signing in...' : 'Sign In',
-                  style: TextStyle(
-                    fontSize: 15,
-                    fontWeight: FontWeight.w800,
-                  ),
+                  _isLoading ? 'Signing in...' : 'Sign In',
+                  style: TextStyle(fontSize: 15, fontWeight: FontWeight.w800),
                 ),
               ),
             ),
@@ -342,10 +307,7 @@ enabled: !_isLoading,
               Expanded(
                 child: Text(
                   'Secure access for authorized staff only',
-                  style: TextStyle(
-                    color: AppColors.textDim,
-                    fontSize: 12,
-                  ),
+                  style: TextStyle(color: AppColors.textDim, fontSize: 12),
                 ),
               ),
             ],
@@ -369,10 +331,7 @@ class _MeerathBrand extends StatelessWidget {
           decoration: BoxDecoration(
             shape: BoxShape.circle,
             color: AppColors.accentSoft,
-            border: Border.all(
-              color: AppColors.accent,
-              width: 1.8,
-            ),
+            border: Border.all(color: AppColors.accent, width: 1.8),
           ),
           alignment: Alignment.center,
           child: const Text(
@@ -418,18 +377,12 @@ class _BrandPanel extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.symmetric(
-        horizontal: 64,
-        vertical: 50,
-      ),
+      padding: const EdgeInsets.symmetric(horizontal: 64, vertical: 50),
       decoration: const BoxDecoration(
         gradient: LinearGradient(
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
-          colors: [
-            Color(0xFF0D0D0D),
-            Color(0xFF16120C),
-          ],
+          colors: [Color(0xFF0D0D0D), Color(0xFF16120C)],
         ),
       ),
       child: Column(
@@ -474,22 +427,13 @@ class _BrandPanel extends StatelessWidget {
             spacing: 10,
             runSpacing: 10,
             children: [
-              _FeatureChip(
-                icon: Icons.restaurant_menu_rounded,
-                text: 'Menu',
-              ),
-              _FeatureChip(
-                icon: Icons.local_offer_outlined,
-                text: 'Offers',
-              ),
+              _FeatureChip(icon: Icons.restaurant_menu_rounded, text: 'Menu'),
+              _FeatureChip(icon: Icons.local_offer_outlined, text: 'Offers'),
               _FeatureChip(
                 icon: Icons.people_outline_rounded,
                 text: 'Customers',
               ),
-              _FeatureChip(
-                icon: Icons.insights_outlined,
-                text: 'Sales',
-              ),
+              _FeatureChip(icon: Icons.insights_outlined, text: 'Sales'),
             ],
           ),
         ],
@@ -499,10 +443,7 @@ class _BrandPanel extends StatelessWidget {
 }
 
 class _FeatureChip extends StatelessWidget {
-  const _FeatureChip({
-    required this.icon,
-    required this.text,
-  });
+  const _FeatureChip({required this.icon, required this.text});
 
   final IconData icon;
   final String text;
@@ -510,32 +451,20 @@ class _FeatureChip extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.symmetric(
-        horizontal: 14,
-        vertical: 11,
-      ),
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 11),
       decoration: BoxDecoration(
         color: AppColors.surface,
         borderRadius: BorderRadius.circular(10),
-        border: Border.all(
-          color: AppColors.border,
-        ),
+        border: Border.all(color: AppColors.border),
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(
-            icon,
-            color: AppColors.accent,
-            size: 17,
-          ),
+          Icon(icon, color: AppColors.accent, size: 17),
           const SizedBox(width: 8),
           Text(
             text,
-            style: const TextStyle(
-              fontSize: 12,
-              fontWeight: FontWeight.w600,
-            ),
+            style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
           ),
         ],
       ),

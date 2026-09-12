@@ -39,10 +39,9 @@ class StatusChip extends StatelessWidget {
     final colors = switch (label) {
       'Live' || 'Delivered' => (AppColors.success, AppColors.successSoft),
       'Low Stock' || 'Preparing' => (AppColors.warning, AppColors.warningSoft),
-      'Unavailable' || 'Cancelled' || 'Expired' => (
-        AppColors.danger,
-        AppColors.dangerSoft,
-      ),
+      'Unavailable' ||
+      'Cancelled' ||
+      'Expired' => (AppColors.danger, AppColors.dangerSoft),
       'Scheduled' || 'Out for delivery' => (AppColors.info, AppColors.infoSoft),
       'VIP' => (AppColors.accent, AppColors.accentSoft),
       _ => (AppColors.textMuted, const Color(0x1A9A9A9A)),
@@ -92,7 +91,11 @@ class CategoryChip extends StatelessWidget {
       ),
       child: Text(
         label,
-        style: TextStyle(color: color, fontSize: 12, fontWeight: FontWeight.w600),
+        style: TextStyle(
+          color: color,
+          fontSize: 12,
+          fontWeight: FontWeight.w600,
+        ),
       ),
     );
   }
@@ -204,10 +207,7 @@ class OutlineActionButton extends StatelessWidget {
       mainAxisAlignment: MainAxisAlignment.center,
       children: [
         Text(label, style: const TextStyle(fontWeight: FontWeight.w600)),
-        if (icon != null) ...[
-          const SizedBox(width: 8),
-          Icon(icon, size: 18),
-        ],
+        if (icon != null) ...[const SizedBox(width: 8), Icon(icon, size: 18)],
       ],
     );
 
@@ -242,11 +242,7 @@ class OutlineActionButton extends StatelessWidget {
 }
 
 class GhostButton extends StatelessWidget {
-  const GhostButton({
-    super.key,
-    required this.label,
-    required this.onPressed,
-  });
+  const GhostButton({super.key, required this.label, required this.onPressed});
 
   final String label;
   final VoidCallback onPressed;

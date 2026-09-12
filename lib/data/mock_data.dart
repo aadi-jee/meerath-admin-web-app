@@ -691,7 +691,8 @@ class MockData {
       name: 'Chicken Biryani',
       nameAr: 'برياني دجاج',
       description: 'Aromatic basmati rice with tender chicken.',
-      longDescription: 'Slow-cooked Hyderabadi-style biryani with saffron rice, marinated chicken, fried onions, and house spices.',
+      longDescription:
+          'Slow-cooked Hyderabadi-style biryani with saffron rice, marinated chicken, fried onions, and house spices.',
       category: 'Rice',
       price: 28,
       compareAtPrice: 32,
@@ -714,7 +715,8 @@ class MockData {
       name: 'Malai Boti Roll',
       nameAr: 'ملائي بوتي رول',
       description: 'Creamy grilled chicken wrapped in paratha.',
-      longDescription: 'Soft malai boti pieces wrapped in a flaky paratha with mint chutney and onions.',
+      longDescription:
+          'Soft malai boti pieces wrapped in a flaky paratha with mint chutney and onions.',
       category: 'BBQ',
       price: 22,
       availableAt: 'Riyadh, Dammam',
@@ -730,7 +732,8 @@ class MockData {
       name: 'Beef Pulao',
       nameAr: 'بلاو لحم',
       description: 'Rich beef stock rice with slow-cooked meat.',
-      longDescription: 'Traditional yakhni pulao with tender beef, whole spices, and steamed basmati.',
+      longDescription:
+          'Traditional yakhni pulao with tender beef, whole spices, and steamed basmati.',
       category: 'Rice',
       price: 32,
       availableAt: 'All Branches',
@@ -745,7 +748,8 @@ class MockData {
       name: 'Rahu Fish',
       nameAr: 'سمك راهو',
       description: 'Crispy fried river fish with masala.',
-      longDescription: 'Fresh rahu fried golden and finished with Meerath masala, lemon, and herbs.',
+      longDescription:
+          'Fresh rahu fried golden and finished with Meerath masala, lemon, and herbs.',
       category: 'Seafood',
       price: 38,
       availableAt: 'Riyadh',
@@ -761,7 +765,8 @@ class MockData {
       name: 'BBQ Mixed Grill',
       nameAr: 'مشاوي مشكلة',
       description: 'Seekh, boti, and chicken tikka platter.',
-      longDescription: 'A sharing platter of seekh kebab, chicken tikka, and malai boti with naan.',
+      longDescription:
+          'A sharing platter of seekh kebab, chicken tikka, and malai boti with naan.',
       category: 'BBQ',
       price: 72,
       availableAt: 'All Branches',
@@ -783,7 +788,8 @@ class MockData {
       name: 'Halwa Puri',
       nameAr: 'حلوة پوري',
       description: 'Classic breakfast with chana and puri.',
-      longDescription: 'Soft puris served with sweet sooji halwa and spiced chickpeas.',
+      longDescription:
+          'Soft puris served with sweet sooji halwa and spiced chickpeas.',
       category: 'Breakfast',
       price: 18,
       availableAt: 'Riyadh, Jeddah',
@@ -799,7 +805,8 @@ class MockData {
       name: 'Kashmiri Chai',
       nameAr: 'شاي كشميري',
       description: 'Pink tea with pistachios and cream.',
-      longDescription: 'Noon chai finished with crushed pistachios, almonds, and a hint of cardamom.',
+      longDescription:
+          'Noon chai finished with crushed pistachios, almonds, and a hint of cardamom.',
       category: 'Drinks',
       price: 12,
       availableAt: 'All Branches',
@@ -815,12 +822,28 @@ class MockData {
 
   // ---------- ADDONS ----------
   static const addons = [
-    AddonData(name: 'Extra Chicken', type: 'Add-on', price: 'SAR 8.00', required: false),
-    AddonData(name: 'Boiled Egg', type: 'Add-on', price: 'SAR 3.00', required: false),
+    AddonData(
+      name: 'Extra Chicken',
+      type: 'Add-on',
+      price: 'SAR 8.00',
+      required: false,
+    ),
+    AddonData(
+      name: 'Boiled Egg',
+      type: 'Add-on',
+      price: 'SAR 3.00',
+      required: false,
+    ),
     AddonData(name: 'Raita', type: 'Option', price: 'SAR 4.00', required: true),
-    AddonData(name: 'Extra Spice', type: 'Option', price: 'SAR 0.00', required: false),
+    AddonData(
+      name: 'Extra Spice',
+      type: 'Option',
+      price: 'SAR 0.00',
+      required: false,
+    ),
   ];
 
   // ---------- OFFERS (READ-ONLY DISPLAY) ----------
-  static List<MenuItemData> get mockOffers => menuItems.where((item) => item.hasOffer).toList();
+  static List<MenuItemData> get mockOffers =>
+      menuItems.where((item) => item.hasOffer).toList();
 }

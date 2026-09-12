@@ -23,10 +23,7 @@ void main() {
     await tester.tap(find.text('Sign In'));
     await tester.pumpAndSettle();
 
-    expect(
-      find.text('Please enter your email and password.'),
-      findsOneWidget,
-    );
+    expect(find.text('Please enter your email and password.'), findsOneWidget);
     expect(find.text('Welcome back'), findsOneWidget);
   });
 }
