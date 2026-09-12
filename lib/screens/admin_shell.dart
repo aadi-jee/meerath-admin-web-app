@@ -11,6 +11,7 @@ import 'placeholder_screen.dart';
 import 'app_content_screen.dart';
 import 'offer_screen.dart';
 import 'channel_pricing_screen.dart';
+import 'catering_enquiries_screen.dart';
 
 class AdminShell extends StatefulWidget {
   const AdminShell({super.key});
@@ -83,6 +84,13 @@ class _AdminShellState extends State<AdminShell> {
 
   void _requestCloseForm() {
     _selectSection(_formReturnIndex);
+  }
+
+  Future<void> _openCateringEnquiries() async {
+    if (_locked) return;
+    await Navigator.of(context).push(
+      MaterialPageRoute<void>(builder: (_) => const CateringEnquiriesScreen()),
+    );
   }
 
   // Successful save is distinct from Cancel: it must not show a discard dialog.
@@ -220,6 +228,7 @@ class _AdminShellState extends State<AdminShell> {
                           child: TopHeader(
                             branchName: 'Meerath Riyadh',
                             onMenuTap: compact ? _openSidebar : null,
+                            onCateringTap: _openCateringEnquiries,
                           ),
                         ),
                         Expanded(

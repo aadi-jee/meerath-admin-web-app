@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:file_picker/file_picker.dart';
 import '../data/menu_repository.dart';
+import '../theme/app_colors.dart';
 import 'website_content_editor.dart';
 import 'catering_enquiries_screen.dart';
 
@@ -62,83 +63,389 @@ class _AppContentScreenState extends State<AppContentScreen> {
   @override
   Widget build(BuildContext context) {
     if (_loading) return const Center(child: CircularProgressIndicator());
-    return ListView(
-      padding: const EdgeInsets.all(24),
-      children: [
-        Card(
-          child: ListTile(
-            leading: const Icon(Icons.language),
-            title: const Text('Website settings — meeratheats.com'),
-            subtitle: const Text(
-              'Hero, logo, English/Arabic text, contact, featured dishes and homepage SEO',
-            ),
-            trailing: const Icon(Icons.edit),
-            onTap: () => showDialog<void>(
-              context: context,
-              barrierDismissible: false,
-              builder: (_) => const WebsiteContentEditor(),
-            ),
-          ),
-        ),
-        Card(
-          child: ListTile(
-            leading: const Icon(Icons.celebration_outlined),
-            title: const Text('Catering enquiries'),
-            subtitle: const Text(
-              'View event requests and move each lead from New to Completed',
-            ),
-            trailing: const Icon(Icons.arrow_forward),
-            onTap: () => Navigator.of(context).push(
-              MaterialPageRoute<void>(
-                builder: (_) => const CateringEnquiriesScreen(),
-              ),
-            ),
-          ),
-        ),
-        Row(
+    final active = _banners.where((b) => b['is_active'] == true).length;
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final wide = constraints.maxWidth >= 900;
+        return ListView(
+          padding: const EdgeInsets.fromLTRB(28, 24, 28, 40),
           children: [
-            const Expanded(
-              child: Text(
-                'Home Banners',
-                style: TextStyle(fontSize: 26, fontWeight: FontWeight.bold),
-              ),
+            Row(
+              children: [
+                const Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'Content Studio',
+                        style: TextStyle(
+                          fontSize: 28,
+                          fontWeight: FontWeight.w800,
+                        ),
+                      ),
+                      SizedBox(height: 5),
+                      Text(
+                        'Manage what customers see across the Meerath website and ordering app.',
+                        style: TextStyle(
+                          color: AppColors.textMuted,
+                          fontSize: 14,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                IconButton.filledTonal(
+                  onPressed: _load,
+                  tooltip: 'Refresh content',
+                  icon: const Icon(Icons.refresh),
+                ),
+              ],
             ),
-            IconButton(
-              onPressed: _load,
-              tooltip: 'Refresh',
-              icon: const Icon(Icons.refresh),
+            const SizedBox(height: 22),
+            if (wide)
+              Row(
+                children: [
+                  Expanded(
+                    child: _actionCard(
+                      icon: Icons.language_rounded,
+                      eyebrow: 'WEBSITE',
+                      title: 'Website presentation',
+                      subtitle:
+                          'Brand, hero, story, contact details, featured dishes and SEO',
+                      action: 'Edit website',
+                      onTap: _openWebsiteEditor,
+                    ),
+                  ),
+                  const SizedBox(width: 16),
+                  Expanded(
+                    child: _actionCard(
+                      icon: Icons.celebration_outlined,
+                      eyebrow: 'LEADS',
+                      title: 'Catering & events',
+                      subtitle:
+                          'Review enquiries and move each opportunity through its status',
+                      action: 'Open enquiries',
+                      onTap: _openCatering,
+                    ),
+                  ),
+                ],
+              )
+            else ...[
+              _actionCard(
+                icon: Icons.language_rounded,
+                eyebrow: 'WEBSITE',
+                title: 'Website presentation',
+                subtitle:
+                    'Brand, hero, story, contact details, featured dishes and SEO',
+                action: 'Edit website',
+                onTap: _openWebsiteEditor,
+              ),
+              const SizedBox(height: 12),
+              _actionCard(
+                icon: Icons.celebration_outlined,
+                eyebrow: 'LEADS',
+                title: 'Catering & events',
+                subtitle:
+                    'Review enquiries and move each opportunity through its status',
+                action: 'Open enquiries',
+                onTap: _openCatering,
+              ),
+            ],
+            const SizedBox(height: 30),
+            Row(
+              children: [
+                const Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'Home banners',
+                        style: TextStyle(
+                          fontSize: 22,
+                          fontWeight: FontWeight.w800,
+                        ),
+                      ),
+                      SizedBox(height: 4),
+                      Text(
+                        'Three customer-facing positions, shown in this order.',
+                        style: TextStyle(color: AppColors.textMuted),
+                      ),
+                    ],
+                  ),
+                ),
+                Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 12,
+                    vertical: 7,
+                  ),
+                  decoration: BoxDecoration(
+                    color: AppColors.accentSoft,
+                    borderRadius: BorderRadius.circular(20),
+                  ),
+                  child: Text(
+                    '$active of 3 live',
+                    style: const TextStyle(
+                      color: AppColors.accent,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 14),
+            if (_error != null)
+              Card(
+                child: Padding(
+                  padding: const EdgeInsets.all(16),
+                  child: Text(
+                    _error!,
+                    style: const TextStyle(color: AppColors.danger),
+                  ),
+                ),
+              ),
+            if (_error == null)
+              if (wide)
+                Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    for (var slot = 1; slot <= 3; slot++) ...[
+                      Expanded(child: _slotCard(slot)),
+                      if (slot < 3) const SizedBox(width: 14),
+                    ],
+                  ],
+                )
+              else
+                for (var slot = 1; slot <= 3; slot++)
+                  Padding(
+                    padding: const EdgeInsets.only(bottom: 12),
+                    child: _slotCard(slot),
+                  ),
+            const SizedBox(height: 14),
+            const Text(
+              'Disabled positions remain saved but stay hidden from customers. Linked items always use their current menu price.',
+              style: TextStyle(color: AppColors.textDim, fontSize: 12),
             ),
           ],
+        );
+      },
+    );
+  }
+
+  void _openWebsiteEditor() => showDialog<void>(
+    context: context,
+    barrierDismissible: false,
+    builder: (_) => const WebsiteContentEditor(),
+  );
+
+  void _openCatering() => Navigator.of(context).push(
+    MaterialPageRoute<void>(builder: (_) => const CateringEnquiriesScreen()),
+  );
+
+  Widget _actionCard({
+    required IconData icon,
+    required String eyebrow,
+    required String title,
+    required String subtitle,
+    required String action,
+    required VoidCallback onTap,
+  }) {
+    return Card(
+      clipBehavior: Clip.antiAlias,
+      child: InkWell(
+        onTap: onTap,
+        child: Padding(
+          padding: const EdgeInsets.all(20),
+          child: Row(
+            children: [
+              Container(
+                width: 52,
+                height: 52,
+                decoration: BoxDecoration(
+                  color: AppColors.accentSoft,
+                  borderRadius: BorderRadius.circular(15),
+                ),
+                child: Icon(icon, color: AppColors.accent, size: 26),
+              ),
+              const SizedBox(width: 16),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      eyebrow,
+                      style: const TextStyle(
+                        color: AppColors.accent,
+                        fontSize: 11,
+                        fontWeight: FontWeight.w800,
+                        letterSpacing: 1.2,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      title,
+                      style: const TextStyle(
+                        fontSize: 17,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      subtitle,
+                      style: const TextStyle(
+                        color: AppColors.textMuted,
+                        fontSize: 12,
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                    Row(
+                      children: [
+                        Text(
+                          action,
+                          style: const TextStyle(
+                            color: AppColors.accent,
+                            fontWeight: FontWeight.w700,
+                          ),
+                        ),
+                        const SizedBox(width: 5),
+                        const Icon(
+                          Icons.arrow_forward_rounded,
+                          color: AppColors.accent,
+                          size: 17,
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
         ),
-        const Text(
-          'Three positions, displayed in order. Disable a position to hide it. Swipe navigation; no auto-slide.\nItem links use the current item price. Unavailable targets stay hidden from customers.',
-        ),
-        if (_error != null)
-          Padding(padding: const EdgeInsets.all(16), child: Text(_error!)),
-        if (_error == null)
-          for (var slot = 1; slot <= 3; slot++) _slotCard(slot),
-      ],
+      ),
     );
   }
 
   Widget _slotCard(int slot) {
     final matches = _banners.where((b) => b['slot'] == slot);
     final b = matches.isEmpty ? null : matches.first;
+    final image = b?['image_url'] as String? ?? '';
+    final isActive = b?['is_active'] == true;
     return Card(
-      margin: const EdgeInsets.only(top: 16),
-      child: ListTile(
-        leading: CircleAvatar(child: Text('$slot')),
-        title: Text(b?['title_en'] as String? ?? 'Empty banner position'),
-        subtitle: Text(
-          b == null
-              ? 'Add content here'
-              : '${b['is_active'] == true ? 'Enabled' : 'Hidden'} • ${b['target_kind']}',
-        ),
-        trailing: const Icon(Icons.edit),
+      clipBehavior: Clip.antiAlias,
+      margin: EdgeInsets.zero,
+      child: InkWell(
         onTap: () => _edit(slot, b),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            SizedBox(
+              height: 120,
+              width: double.infinity,
+              child: image.isEmpty
+                  ? Container(
+                      color: AppColors.surfaceAlt,
+                      child: const Icon(
+                        Icons.add_photo_alternate_outlined,
+                        color: AppColors.textDim,
+                        size: 34,
+                      ),
+                    )
+                  : Image.network(
+                      image,
+                      fit: BoxFit.cover,
+                      errorBuilder: (_, error, stack) => Container(
+                        color: AppColors.surfaceAlt,
+                        child: const Icon(
+                          Icons.broken_image_outlined,
+                          color: AppColors.textDim,
+                        ),
+                      ),
+                    ),
+            ),
+            Padding(
+              padding: const EdgeInsets.all(16),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      Text(
+                        'POSITION $slot',
+                        style: const TextStyle(
+                          color: AppColors.accent,
+                          fontSize: 10,
+                          fontWeight: FontWeight.w800,
+                          letterSpacing: 1.1,
+                        ),
+                      ),
+                      const Spacer(),
+                      Icon(
+                        Icons.circle,
+                        size: 9,
+                        color: isActive ? AppColors.success : AppColors.textDim,
+                      ),
+                      const SizedBox(width: 5),
+                      Text(
+                        isActive ? 'Live' : 'Hidden',
+                        style: const TextStyle(
+                          color: AppColors.textMuted,
+                          fontSize: 11,
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    b?['title_en'] as String? ?? 'Empty banner position',
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                  const SizedBox(height: 5),
+                  Text(
+                    b == null
+                        ? 'Add content and destination'
+                        : 'Opens ${_targetLabel('${b['target_kind']}')}',
+                    style: const TextStyle(
+                      color: AppColors.textMuted,
+                      fontSize: 12,
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  const Row(
+                    children: [
+                      Icon(
+                        Icons.edit_outlined,
+                        color: AppColors.accent,
+                        size: 17,
+                      ),
+                      SizedBox(width: 6),
+                      Text(
+                        'Edit banner',
+                        style: TextStyle(
+                          color: AppColors.accent,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
+
+  String _targetLabel(String value) => switch (value) {
+    'item' => 'a menu item',
+    'category' => 'a category',
+    'offers' => 'offers',
+    _ => 'the menu',
+  };
 }
 
 class _BannerEditor extends StatefulWidget {

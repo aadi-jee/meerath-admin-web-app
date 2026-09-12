@@ -1,16 +1,117 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 
+import '../data/catering_repository.dart';
 import '../theme/app_colors.dart';
 
-class TopHeader extends StatelessWidget {
+class TopHeader extends StatefulWidget {
   const TopHeader({
     super.key,
     this.branchName = 'Meerath Riyadh',
     this.onMenuTap,
+    this.onCateringTap,
   });
 
   final String branchName;
   final VoidCallback? onMenuTap;
+  final VoidCallback? onCateringTap;
+
+  @override
+  State<TopHeader> createState() => _TopHeaderState();
+}
+
+class _TopHeaderState extends State<TopHeader> with WidgetsBindingObserver {
+  Timer? _timer;
+  int? _newCount;
+  bool _loading = false;
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addObserver(this);
+    _refresh();
+    _timer = Timer.periodic(const Duration(seconds: 30), (_) => _refresh());
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) _refresh();
+  }
+
+  Future<void> _refresh() async {
+    if (_loading) return;
+    _loading = true;
+    try {
+      final count = await CateringRepository().newCount();
+      if (!mounted) return;
+      final previous = _newCount;
+      setState(() => _newCount = count);
+      if (previous != null && count > previous) {
+        final added = count - previous;
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              '$added new catering ${added == 1 ? 'enquiry' : 'enquiries'} received',
+            ),
+            action: SnackBarAction(
+              label: 'View',
+              onPressed: () => widget.onCateringTap?.call(),
+            ),
+          ),
+        );
+      }
+    } catch (_) {
+      // Retain the last verified count. The dashboard alert provides retry UI.
+    } finally {
+      _loading = false;
+    }
+  }
+
+  Future<void> _showNotifications() async {
+    final count = _newCount ?? 0;
+    await showDialog<void>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('Notifications'),
+        content: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Icon(Icons.celebration_outlined, color: AppColors.accent),
+            const SizedBox(width: 12),
+            Flexible(
+              child: Text(
+                count == 0
+                    ? 'No new catering enquiries.'
+                    : '$count new catering ${count == 1 ? 'enquiry' : 'enquiries'} awaiting response.',
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext),
+            child: const Text('Close'),
+          ),
+          if (count > 0)
+            FilledButton(
+              onPressed: () {
+                Navigator.pop(dialogContext);
+                widget.onCateringTap?.call();
+              },
+              child: const Text('View enquiries'),
+            ),
+        ],
+      ),
+    );
+    await _refresh();
+  }
+
+  @override
+  void dispose() {
+    _timer?.cancel();
+    WidgetsBinding.instance.removeObserver(this);
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -23,9 +124,9 @@ class TopHeader extends StatelessWidget {
       ),
       child: Row(
         children: [
-          if (onMenuTap != null)
+          if (widget.onMenuTap != null)
             IconButton(
-              onPressed: onMenuTap,
+              onPressed: widget.onMenuTap,
               icon: const Icon(Icons.menu, color: AppColors.textMuted),
             ),
           Container(
@@ -45,7 +146,7 @@ class TopHeader extends StatelessWidget {
                   color: AppColors.accent,
                 ),
                 const SizedBox(width: 8),
-                Text(branchName, style: const TextStyle(fontSize: 13)),
+                Text(widget.branchName, style: const TextStyle(fontSize: 13)),
               ],
             ),
           ),
@@ -107,21 +208,35 @@ class TopHeader extends StatelessWidget {
           Stack(
             children: [
               IconButton(
-                onPressed: () {},
+                onPressed: _showNotifications,
+                tooltip: 'Catering notifications',
                 icon: const Icon(Icons.notifications_none_rounded),
               ),
-              Positioned(
-                right: 10,
-                top: 10,
-                child: Container(
-                  width: 8,
-                  height: 8,
-                  decoration: const BoxDecoration(
-                    color: AppColors.accent,
-                    shape: BoxShape.circle,
+              if ((_newCount ?? 0) > 0)
+                Positioned(
+                  right: 2,
+                  top: 2,
+                  child: Container(
+                    constraints: const BoxConstraints(
+                      minWidth: 18,
+                      minHeight: 18,
+                    ),
+                    padding: const EdgeInsets.symmetric(horizontal: 5),
+                    decoration: const BoxDecoration(
+                      color: AppColors.accent,
+                      shape: BoxShape.circle,
+                    ),
+                    alignment: Alignment.center,
+                    child: Text(
+                      _newCount! > 99 ? '99+' : '$_newCount',
+                      style: const TextStyle(
+                        color: Colors.black,
+                        fontSize: 10,
+                        fontWeight: FontWeight.w800,
+                      ),
+                    ),
                   ),
                 ),
-              ),
             ],
           ),
           const SizedBox(width: 4),

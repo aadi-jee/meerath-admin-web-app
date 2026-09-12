@@ -176,6 +176,20 @@ class _CateringEnquiriesScreenState extends State<CateringEnquiriesScreen> {
       'outside' => 'Outside catering',
       _ => 'Not decided yet',
     };
+    final name = '${r['customer_name'] ?? ''}'.trim().isEmpty
+        ? 'Guest'
+        : '${r['customer_name']}'.trim();
+    final event = _label(r['event_type'] as String? ?? 'event');
+    final guests = int.tryParse('${r['guest_count']}');
+    final area = '${r['area'] ?? ''}'.trim();
+    final place = r['venue_type'] == 'meerath'
+        ? 'Meerath Kabab'
+        : area.isNotEmpty
+        ? area
+        : venue;
+    final guestText = guests == null
+        ? 'an estimated number of guests'
+        : '$guests ${guests == 1 ? 'guest' : 'guests'}';
     return Card(
       key: ValueKey(r['id']),
       margin: const EdgeInsets.only(bottom: 16),
@@ -185,15 +199,15 @@ class _CateringEnquiriesScreenState extends State<CateringEnquiriesScreen> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Wrap(
-              spacing: 16,
-              runSpacing: 10,
+              spacing: 12,
+              runSpacing: 8,
               crossAxisAlignment: WrapCrossAlignment.center,
               children: [
                 Text(
-                  '${r['customer_name'] ?? ''}',
+                  name,
                   style: const TextStyle(
-                    fontSize: 20,
-                    fontWeight: FontWeight.bold,
+                    fontSize: 17,
+                    fontWeight: FontWeight.w700,
                   ),
                 ),
                 Chip(
@@ -203,11 +217,18 @@ class _CateringEnquiriesScreenState extends State<CateringEnquiriesScreen> {
                 ),
               ],
             ),
+            const SizedBox(height: 4),
             Text(
-              '${_label(r['event_type'] as String? ?? '')} · Received ${_when(r['created_at'])}',
+              '$name wants to enquire about $event at $place for $guestText.',
+              style: const TextStyle(fontSize: 14),
             ),
+            const SizedBox(height: 4),
             Text(
-              '${r['mobile'] ?? ''} · Guests: ${r['guest_count'] ?? 'Not provided'} · Date: ${r['event_date'] ?? 'Undecided'}',
+              'Received ${_when(r['created_at'])}  ·  ${r['mobile'] ?? ''}  ·  ${r['event_date'] ?? 'Date undecided'}',
+              style: TextStyle(
+                color: Theme.of(context).colorScheme.onSurfaceVariant,
+                fontSize: 12,
+              ),
             ),
             TextButton.icon(
               key: ValueKey('expand-$id'),
@@ -224,24 +245,23 @@ class _CateringEnquiriesScreenState extends State<CateringEnquiriesScreen> {
             if (expanded) ...[
               const SizedBox(height: 12),
               _detail('Mobile / WhatsApp', r['mobile']),
-              _detail('Venue', venue),
+              _detail(
+                'Venue / location',
+                r['venue_type'] == 'meerath'
+                    ? 'Meerath Kabab'
+                    : area.isEmpty
+                    ? venue
+                    : '$venue · $area',
+              ),
               _detail('Preferred date', r['event_date']),
               _detail('Guests (total)', r['guest_count']),
               _detail('Adults / ages 12+', r['adult_count']),
-              _detail('Children 5–11', r['kids_5_11_count']),
-              _detail('Children under 5', r['kids_under_5_count']),
-              _detail(
-                'Area / location',
-                r['venue_type'] == 'meerath' ? 'Meerath restaurant' : r['area'],
-              ),
+              if ((int.tryParse('${r['kids_5_11_count']}') ?? 0) > 0)
+                _detail('Children 5–11', r['kids_5_11_count']),
+              if ((int.tryParse('${r['kids_under_5_count']}') ?? 0) > 0)
+                _detail('Children under 5', r['kids_under_5_count']),
               _detail('Customer message', r['message']),
-              _detail('Language', r['lang'] == 'ar' ? 'Arabic' : 'English'),
-              _detail(
-                'Contact consent',
-                r['consent_to_contact'] == true ? 'Provided' : 'Not provided',
-              ),
               _detail('Last updated', _when(r['updated_at'])),
-              _detail('Reference', r['id']),
             ],
             const Divider(height: 20),
             Wrap(

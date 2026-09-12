@@ -55,7 +55,7 @@ void main() {
     await tester.tap(find.byKey(const ValueKey('expand-test-id')));
     await tester.pumpAndSettle();
     expect(find.text('Vegetarian option requested'), findsOneWidget);
-    expect(find.text('At Meerath restaurant'), findsOneWidget);
+    expect(find.text('Meerath Kabab'), findsOneWidget);
     expect(find.text('Children 5–11'), findsOneWidget);
     await tester.tap(find.byKey(const ValueKey('expand-test-id')));
     await tester.pumpAndSettle();
